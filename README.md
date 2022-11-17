@@ -1,5 +1,7 @@
 # 土星辞書 Doseijisho
 
+![Image of Doseijisho, showing the result for the word 前. Multiple dictionaries seen to the right, such as Daijirin](https://i.imgur.com/0y2obbT.png)
+
 ## Description
 
 Doseijisho is a new multilingual dictionary GUI program made in Zig. Currently, it supports StarDict, EPWING and TAB formats. In it, you can load multiple dictionaries. Still quite a WIP, I'll tidy things up soon enough.
