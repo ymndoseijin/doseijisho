@@ -341,7 +341,7 @@ pub const StarDictDictionary = struct {
             buff[i] = char;
             if (char == 0) {
                 var return_buff = try allocator.alloc(u8, i + 1);
-                std.mem.copy(u8, return_buff, buff[0..i]);
+                std.mem.copy(u8, return_buff, buff[0 .. i + 1]);
 
                 return return_buff[0..i :0];
             }
