@@ -1,0 +1,7 @@
+Enter key needs to work for searching
+Hover select needs to work
+Quoting should force words to be grouped together
+Sanitize UTF8 strings.
+Filter based on <米> →英和 -- Harder than you thought! some don't follow that pattern, probably leave it to the user to decide
+Search for reading of word when not able to find
+Search over words, 洒落　た would first search for 洒落た and then 洒落る た
