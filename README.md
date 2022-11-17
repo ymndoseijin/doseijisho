@@ -15,6 +15,7 @@ Doseijisho's dependencies are `gtk4`, `MeCab` and `libeb`. Plus it's written in 
 ```
 # pacman -S gtk4
 $ yay -S mecab libeb // or manually or using any other AUR helper
+$ yay -S zig-dev-bin // this is the current zig version I'm using, not sure if it works on other ones
 ```
 
 Then, you can simply clone the repository and run `zig build run` to start the program. The binary is currently in `zig-out/bin/doseijisho`.
