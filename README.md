@@ -18,11 +18,12 @@ Doseijisho's dependencies are `gtk4`, `MeCab` and `libeb`. Plus it's written in 
 ```
 
 Then, you can simply clone the repository and run `zig build run` to start the program. The binary is currently in `zig-out/bin/doseijisho`.
+For common usage, I recommend using `zig build -Drelease-fast=true` instead. When debugging, it's better to disable it.
 
 ## Usage
 
 ```
-zig-out/bin/doseijisho [option] ...
+doseijisho [option] ...
   -h --help shows a help command
   -s --stardict [stardict-file] sets StarDict dictionary
   -t --tab [tab-file] sets tabulated dictionary
