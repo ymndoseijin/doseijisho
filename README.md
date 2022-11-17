@@ -8,15 +8,17 @@ Doseijisho is a new multilingual dictionary GUI program made in Zig. Currently, 
 
 It uses [MeCab](https://taku910.github.io/mecab/) for converting phrases into 分かち, separating them into words, making it possible to serach using entire phrases (like in [Jotoba](https://jotoba.de/)). That, besides personal amusement, is mostly the reason I made this, for I couldn't find a good desktop dictionary that could do that, that and Linux's dictionary software is quite lacking.
 
-## Build instructions
+## Installation
 
-Currently, you have to build Doseijisho by yourself.
+Doseijisho has an AppImage on its [release page](https://github.com/ymndoseijin/doseijisho/releases), you may choose to install it that way. Currently, it's not in any package managers.
+
+## Build instructions
 
 Doseijisho's dependencies are `gtk4`, `MeCab` and `libeb`. Plus it's written in Zig, on Arch Linux (similarly enough on other *NIX systems) these can be installed by:
 
 ```
 # pacman -S gtk4
-$ yay -S mecab libeb // or manually or using any other AUR helper
+$ yay -S mecab mecab-ipadict libeb // or manually or using any other AUR helper
 $ yay -S zig-dev-bin // this is the current zig version I'm using, not sure if it works on other ones
 ```
 
