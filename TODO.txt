@@ -5,3 +5,5 @@ Sanitize UTF8 strings.
 Filter based on <米> →英和 -- Harder than you thought! some don't follow that pattern, probably leave it to the user to decide
 Search for reading of word when not able to find
 Search over words, 洒落　た would first search for 洒落た and then 洒落る た
+
+Do some sort of XML parsing, it seems like MANY StarDict dictionaries use HTML and I think you can just get away with ignoring the right things, which is good enough for those dictionaries to be usable
