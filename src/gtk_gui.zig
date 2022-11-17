@@ -67,12 +67,13 @@ fn gtkActivateDictList(list: *c.GtkListView, position: u32, unused: c.gpointer) 
 
     dict_index = position;
     queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
-    if (entry_index > current_entries.items.len)
-        entry_index = current_entries.items.len;
     setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
 }
 
-fn setEntry(index: usize) !void {
+fn setEntry(in_index: usize) !void {
+    var index = in_index;
+    if (index > current_entries.items.len - 1)
+        index = current_entries.items.len - 1;
     const entry = current_entries.items[index];
 
     while (current_label_widgets.items.len > 0) {
@@ -223,6 +224,7 @@ fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = data;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
     queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
+    setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
 }
 
 fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void {
