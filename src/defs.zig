@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const message = "冬子は己のすぐ前をゆっくりと歩いている。";
 
@@ -16,7 +17,8 @@ pub fn toNullTerminated(text: []const u8) ![:0]const u8 {
     return allocator.dupeZ(u8, text);
 }
 
-pub const allocator = std.heap.c_allocator;
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+pub const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
 pub const Entry = struct {
     names: std.ArrayList([]const u8),
@@ -128,9 +130,11 @@ pub const EpwingDictionary = struct {
         var ret: usize = c.iconv(iconv, @ptrCast([*c][*c]u8, &target_string), &ibl, @ptrCast([*c][*c]u8, &conversion_ptr), &obl);
         _ = ret;
         var index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
-        converted_lemma.len = index;
+        var buff = try allocator.alloc(u8, index + 1);
+        std.mem.copy(u8, buff, converted_lemma[0 .. index + 1]);
+        allocator.free(converted_lemma);
 
-        return converted_lemma;
+        return buff;
     }
 
     pub fn init(path: []const u8) !EpwingDictionary {

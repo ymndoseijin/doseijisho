@@ -61,7 +61,7 @@ fn gtkBind(arg_self: ?*c.GtkSignalListItemFactory, arg_listitem: ?*c.GtkListItem
 
 var current_label_widgets = std.ArrayList(*c.GtkWidget).init(allocator);
 
-fn gtkActivateDictList(list: *c.GtkListView, position: u32, unused: c.gpointer) void {
+fn gtkActivateDictList(list: *c.GtkListView, position: u32, unused: c.gpointer) callconv(.C) void {
     _ = unused;
     _ = list;
 
@@ -124,7 +124,7 @@ fn setEntry(index: usize) !void {
     }
 }
 
-fn gtkActivateList(list: *c.GtkListView, position: u32, unused: c.gpointer) void {
+fn gtkActivateList(list: *c.GtkListView, position: u32, unused: c.gpointer) callconv(.C) void {
     _ = unused;
     _ = list;
     entry_index = position;
@@ -218,7 +218,7 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
     string_array.deinit();
 }
 
-fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) void {
+fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = widget;
     _ = data;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
