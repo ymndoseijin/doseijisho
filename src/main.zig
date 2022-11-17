@@ -1,5 +1,6 @@
 const std = @import("std");
 const unicode = @import("std").unicode;
+const builtin = @import("builtin");
 
 const defs = @import("defs.zig");
 
@@ -18,7 +19,10 @@ const ArgState = enum {
 };
 
 pub fn main() !void {
-    var arg_iterator = std.process.args();
+    var arg_iterator = switch (builtin.os.tag) {
+        .windows => try std.process.ArgIterator.initWithAllocator(allocator),
+        else => std.process.args(),
+    };
 
     var state = ArgState.Arg;
     var command: ?[]const u8 = null;
