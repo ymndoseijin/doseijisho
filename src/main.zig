@@ -72,5 +72,5 @@ pub fn main() !void {
         }
     }
 
-    gtk.gtkStart(dictionaries.items);
+    gtk.gtkStart(defs.Library{ .dicts = dictionaries.items });
 }

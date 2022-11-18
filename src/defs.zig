@@ -25,6 +25,83 @@ pub const Entry = struct {
     descriptions: std.ArrayList([]const u8),
 };
 
+pub const QueryResult = struct {
+    query_name: []const u8,
+    query_lemma: []const u8,
+    entry: Entry,
+};
+
+pub const Library = struct {
+    pub const MecabError = error{
+        MecabImproper,
+        MecabNotEnoughFields,
+    };
+
+    dicts: []Dictionary,
+
+    pub fn queryLibrary(self: *Library, phrase: [*c]const u8, index: usize) !std.ArrayList(QueryResult) {
+        var entries = std.ArrayList(QueryResult).init(allocator);
+        var argv_a = [_][*c]const u8{
+            "mecab",
+        };
+        var cptr = @ptrCast([*c][*c]u8, &argv_a[0]);
+        var mecab = c.mecab_new(argv_a.len, cptr);
+
+        var c_response = c.mecab_sparse_tostr(mecab, phrase);
+        std.log.info("mecab {s}", .{c_response});
+        const type_ptr = @as([*:0]const u8, c_response);
+        const ptr = std.mem.span(type_ptr);
+        var line_iter = std.mem.split(u8, ptr, "\n");
+
+        while (line_iter.next()) |line| {
+            if (std.mem.startsWith(u8, line, "EOS") or line.len == 0)
+                continue;
+
+            var field_iter = std.mem.split(u8, line, ",");
+            var tab_iter = std.mem.split(u8, line, "\t");
+
+            var i: u32 = 0;
+            var name: []const u8 = undefined;
+            if (tab_iter.next()) |word| {
+                name = try toNullTerminated(word);
+            } else {
+                return MecabError.MecabNotEnoughFields;
+            }
+            var lemma: []const u8 = undefined;
+            var no_field: bool = true;
+            while (field_iter.next()) |field| {
+                if (i == 6) {
+                    lemma = field;
+                    no_field = false;
+                    break;
+                }
+                i += 1;
+            }
+            if (no_field) {
+                return MecabError.MecabNotEnoughFields;
+            }
+            std.log.info("lemma & name {s} {s}", .{ lemma, name });
+            if (std.mem.startsWith(u8, lemma, "*"))
+                lemma = name;
+
+            if (self.dicts.len > 0) {
+                var dict_union = self.dicts[index];
+
+                switch (dict_union) {
+                    inline else => |*dict| {
+                        const entry = try dict.getEntry(lemma, name);
+                        try entries.append(QueryResult{ .entry = entry, .query_lemma = lemma, .query_name = name });
+                    },
+                }
+            }
+        }
+
+        c.mecab_destroy(mecab);
+
+        return entries;
+    }
+};
+
 pub const EpwingError = error{
     InvalidPath,
 };

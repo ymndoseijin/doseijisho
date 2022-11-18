@@ -3,6 +3,7 @@ const unicode = @import("std").unicode;
 const defs = @import("defs.zig");
 
 // why don't namespaces work?
+const Library = defs.Library;
 const Entry = defs.Entry;
 const c = defs.c;
 const allocator = defs.allocator;
@@ -10,7 +11,7 @@ const toNullTerminated = defs.toNullTerminated;
 const message = defs.message;
 const Dictionary = defs.Dictionary;
 
-var current_entries = std.ArrayList(Entry).init(allocator);
+var current_entries = std.ArrayList(defs.QueryResult).init(allocator);
 
 var entry_buffer: *c.GtkEntryBuffer = undefined;
 var description_widget: *c.GtkWidget = undefined;
@@ -18,7 +19,8 @@ var lv: [*c]c.GtkWidget = undefined;
 var dict_lv: [*c]c.GtkWidget = undefined;
 var description_attributes: *c.PangoAttrList = undefined;
 var name_attributes: *c.PangoAttrList = undefined;
-var library: []Dictionary = undefined;
+
+var library: Library = undefined;
 
 var current_phrase: [*c]const u8 = message;
 
@@ -66,7 +68,7 @@ fn gtkActivateDictList(list: *c.GtkListView, position: u32, unused: c.gpointer) 
     _ = list;
 
     dict_index = position;
-    if (library.len > 0) {
+    if (library.dicts.len > 0) {
         queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
         setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
     }
@@ -76,7 +78,7 @@ fn setEntry(in_index: usize) !void {
     var index = in_index;
     if (index > current_entries.items.len - 1)
         index = current_entries.items.len - 1;
-    const entry = current_entries.items[index];
+    const query = current_entries.items[index];
 
     while (current_label_widgets.items.len > 0) {
         var widget = current_label_widgets.pop();
@@ -84,8 +86,8 @@ fn setEntry(in_index: usize) !void {
     }
 
     var i: u32 = 0;
-    for (entry.descriptions.items) |description| {
-        var name_string = @ptrCast([*c]const u8, entry.names.items[i]);
+    for (query.entry.descriptions.items) |description| {
+        var name_string = @ptrCast([*c]const u8, query.entry.names.items[i]);
         var string = @ptrCast([*c]const u8, description);
 
         var name_widget = c.gtk_label_new(name_string);
@@ -133,80 +135,26 @@ fn gtkActivateList(list: *c.GtkListView, position: u32, unused: c.gpointer) call
     entry_index = position;
     setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
 }
-
-pub const MecabError = error{
-    MecabImproper,
-    MecabNotEnoughFields,
-};
-
 fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
-    var argv_a = [_][*c]const u8{
-        "mecab",
-    };
-    var cptr = @ptrCast([*c][*c]u8, &argv_a[0]);
-    var mecab = c.mecab_new(argv_a.len, cptr);
-
-    var c_response = c.mecab_sparse_tostr(mecab, phrase);
-    std.log.info("mecab {s}", .{c_response});
-    const type_ptr = @as([*:0]const u8, c_response);
-    const ptr = std.mem.span(type_ptr);
-    var line_iter = std.mem.split(u8, ptr, "\n");
     var string_array = std.ArrayList([*c]const u8).init(allocator);
+    defer string_array.deinit();
 
     while (current_entries.items.len > 0) {
-        const entry = current_entries.pop();
-        for (entry.names.items) |name| {
+        const query = current_entries.pop();
+        for (query.entry.names.items) |name| {
             allocator.free(name);
         }
-        for (entry.descriptions.items) |desc| {
+        for (query.entry.descriptions.items) |desc| {
             allocator.free(desc);
         }
-        entry.descriptions.deinit();
-        entry.names.deinit();
+        query.entry.descriptions.deinit();
+        query.entry.names.deinit();
     }
 
-    while (line_iter.next()) |line| {
-        if (std.mem.startsWith(u8, line, "EOS") or line.len == 0)
-            continue;
+    current_entries = try library.queryLibrary(phrase, index);
 
-        var field_iter = std.mem.split(u8, line, ",");
-        var tab_iter = std.mem.split(u8, line, "\t");
-
-        var i: u32 = 0;
-        var name: []const u8 = undefined;
-        if (tab_iter.next()) |word| {
-            name = try toNullTerminated(word);
-        } else {
-            return MecabError.MecabNotEnoughFields;
-        }
-        var lemma: []const u8 = undefined;
-        var no_field: bool = true;
-        while (field_iter.next()) |field| {
-            if (i == 6) {
-                lemma = field;
-                no_field = false;
-                break;
-            }
-            i += 1;
-        }
-        if (no_field) {
-            return MecabError.MecabNotEnoughFields;
-        }
-        std.log.info("lemma & name {s} {s}", .{ lemma, name });
-        if (std.mem.startsWith(u8, lemma, "*"))
-            lemma = name;
-
-        if (library.len > 0) {
-            var dict_union = library[index];
-
-            switch (dict_union) {
-                inline else => |*dict| {
-                    const entry = try dict.getEntry(lemma, name);
-                    try string_array.append(@ptrCast([*c]const u8, name));
-                    try current_entries.append(entry);
-                },
-            }
-        }
+    for (current_entries.items) |query| {
+        try string_array.append(@ptrCast([*c]const u8, query.query_name));
     }
 
     try string_array.append(null);
@@ -216,16 +164,13 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
 
     _ = c.gtk_list_view_set_model(@ptrCast(*c.GtkListView, lv), @ptrCast(*c.GtkSelectionModel, ns));
     _ = c.gtk_list_view_set_single_click_activate(@ptrCast(*c.GtkListView, lv), 1);
-    c.mecab_destroy(mecab);
-
-    string_array.deinit();
 }
 
 fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = widget;
     _ = data;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
-    if (library.len > 0) {
+    if (library.dicts.len > 0) {
         queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
         setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
     }
@@ -267,7 +212,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
 
     var dict_names = std.ArrayList([*c]const u8).init(allocator);
 
-    for (library) |dict_union| {
+    for (library.dicts) |dict_union| {
         switch (dict_union) {
             inline else => |*dict| dict_names.append(@ptrCast([*c]const u8, dict.title)) catch |err| @panic(@typeName(@TypeOf(err))),
         }
@@ -357,7 +302,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_show(window);
 }
 
-pub fn gtkStart(lib: []Dictionary) void {
+pub fn gtkStart(lib: Library) void {
     library = lib;
     var status: i32 = 0;
 
