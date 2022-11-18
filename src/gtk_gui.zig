@@ -66,8 +66,10 @@ fn gtkActivateDictList(list: *c.GtkListView, position: u32, unused: c.gpointer) 
     _ = list;
 
     dict_index = position;
-    queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
-    setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
+    if (library.len > 0) {
+        queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
+        setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
+    }
 }
 
 fn setEntry(in_index: usize) !void {
@@ -223,8 +225,10 @@ fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = widget;
     _ = data;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
-    queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
-    setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
+    if (library.len > 0) {
+        queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
+        setEntry(entry_index) catch |err| @panic(@typeName(@TypeOf(err)));
+    }
 }
 
 fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void {
