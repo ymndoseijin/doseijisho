@@ -107,36 +107,34 @@ pub fn main() !void {
 
     if (config.list_titles) {
         for (dicts.items) |dict_union| {
-            switch (dict_union) {
-                inline else => |*dict| {
-                    try stdout.print("{s}\n", .{dict.title});
-                },
-            }
+            var dict = switch (dict_union) {
+                inline else => |*dict| dict,
+            };
+            try stdout.print("{s}\n", .{dict.title});
         }
     }
 
     if (free_arg_count == 3) {
         for (dicts.items) |dict_union| {
-            switch (dict_union) {
-                inline else => |*dict| {
-                    if (std.mem.eql(u8, dict.title, dict_name)) {
-                        var results = try library.queryLibrary(@ptrCast([*c]const u8, try allocator.dupeZ(u8, search_query)), index);
-                        for (results.items) |query| {
-                            var i: u32 = 0;
-                            for (query.entry.names.items) |name| {
-                                var desc = query.entry.descriptions.items[i];
-                                try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
-                                i += 1;
-                            }
-
-                            query.entry.descriptions.deinit();
-                            query.entry.names.deinit();
-                        }
-                        break;
+            var dict = switch (dict_union) {
+                inline else => |*dict| dict,
+            };
+            if (std.mem.eql(u8, dict.title, dict_name)) {
+                var results = try library.queryLibrary(@ptrCast([*c]const u8, try allocator.dupeZ(u8, search_query)), index);
+                for (results.items) |query| {
+                    var i: u32 = 0;
+                    for (query.entry.names.items) |name| {
+                        var desc = query.entry.descriptions.items[i];
+                        try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
+                        i += 1;
                     }
-                    index += 1;
-                },
+
+                    query.entry.descriptions.deinit();
+                    query.entry.names.deinit();
+                }
+                break;
             }
+            index += 1;
         }
     }
 
