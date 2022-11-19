@@ -1,6 +1,15 @@
 A multi-lingual dictionary made in Zig!
-usage: {s} [option] ...
+usage: {s} [options] ... [dictionary] [search-queries] ...
+
+[dictionary] sets the target dictionary for search in the cli interface
+[search-queries] sets the search words to the target dictionary, it can take more than one word.
+
+If no [search-queries] are set, it will read from stdin by default. If [dictionary] and [search-queries] aren't set, it will trigger the GTK interface.
+
   -h --help shows this menu
   -s --stardict [stardict-file] sets StarDict dictionary
   -t --tab [tab-file] sets tabulated dictionary
   -e --epwing [eb-file] sets EB(EPWING, EBG...) dictionary
+  -l --list list dictionary titles (separated by newlines)
+  -v --verbose enable verbose output (useful for debugging)
+  -c --cli-only disable all other interfaces besides cli

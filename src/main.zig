@@ -49,7 +49,7 @@ pub fn main() !void {
     var free_arg_count: u32 = 0;
 
     var dict_name: []const u8 = undefined;
-    var search_query: []const u8 = undefined;
+    var search_query = std.ArrayList([]const u8).init(allocator);
 
     var dicts = std.ArrayList(defs.Dictionary).init(allocator);
 
@@ -72,8 +72,8 @@ pub fn main() !void {
                     std.mem.startsWith(u8, arg, "--verbose"))
                 {
                     config.verbose = true;
-                } else if (std.mem.startsWith(u8, arg, "-n") or
-                    std.mem.startsWith(u8, arg, "--no-gtk"))
+                } else if (std.mem.startsWith(u8, arg, "-c") or
+                    std.mem.startsWith(u8, arg, "--cli-only"))
                 {
                     config.gtk = false;
                 } else if (std.mem.startsWith(u8, arg, "-s") or
@@ -85,18 +85,18 @@ pub fn main() !void {
                 {
                     try stdout.print(@embedFile("help.txt"), .{command.?});
                     std.os.exit(0);
-                } else if (arg[0] != '-') {
-                    if (free_arg_count == 0) {
-                        command = arg;
-                    } else if (free_arg_count == 1) {
-                        dict_name = try allocator.dupe(u8, arg);
-                    } else if (free_arg_count == 2) {
-                        search_query = try allocator.dupe(u8, arg);
-                    } else {
-                        try stdout.print("Too many arguments {s} {}\n", .{ arg, free_arg_count });
-                        std.os.exit(255);
+                } else if (arg.len > 1) {
+                    if (arg[0] != '-') {
+                        if (free_arg_count == 0) {
+                            command = arg;
+                        } else if (free_arg_count == 1) {
+                            dict_name = try allocator.dupe(u8, arg);
+                        } else {
+                            var query = try allocator.dupeZ(u8, arg);
+                            try search_query.append(query);
+                        }
+                        free_arg_count += 1;
                     }
-                    free_arg_count += 1;
                 }
             },
             ArgState.Epwing => {
@@ -127,40 +127,43 @@ pub fn main() !void {
         }
     }
 
+    var no_dict = true;
     if (free_arg_count >= 2) {
         for (dicts.items) |dict_union| {
-            switch (dict_union) {
-                inline else => |*dict| {
-                    if (std.mem.eql(u8, dict.title, dict_name)) {
-                        if (free_arg_count == 2) {
-                            var stdin = std.io.getStdIn().reader();
-                            var buf_reader = std.io.bufferedReader(stdin);
-                            var in_stream = buf_reader.reader();
+            const title = switch (dict_union) {
+                inline else => |*dict| dict.title,
+            };
+            if (std.mem.eql(u8, title, dict_name)) {
+                if (free_arg_count == 2) {
+                    var stdin = std.io.getStdIn().reader();
+                    var buf_reader = std.io.bufferedReader(stdin);
+                    var in_stream = buf_reader.reader();
 
-                            while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
-                                var sentinel_query = try allocator.dupeZ(u8, line);
-                                var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
-                                try printEntry(results);
+                    while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
+                        var sentinel_query = try allocator.dupeZ(u8, line);
+                        var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
+                        try printEntry(results);
 
-                                allocator.free(sentinel_query);
-                                allocator.free(line);
-                            }
-                        } else {
-                            var sentinel_query = try allocator.dupeZ(u8, search_query);
-                            var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
-                            try printEntry(results);
-
-                            allocator.free(sentinel_query);
-                        }
-                        break;
+                        allocator.free(sentinel_query);
+                        allocator.free(line);
                     }
-                    index += 1;
-                },
-            }
-        }
-    }
+                } else {
+                    for (search_query.items) |query| {
+                        var results = try library.queryLibrary(@ptrCast([*c]const u8, query), index);
+                        try printEntry(results);
 
-    if (config.gtk) {
+                        allocator.free(query);
+                    }
+                }
+                no_dict = false;
+                break;
+            }
+            index += 1;
+        }
+        if (no_dict) {
+            std.os.exit(255);
+        }
+    } else if (config.gtk) {
         gtk.gtkStart(library);
     }
 }
