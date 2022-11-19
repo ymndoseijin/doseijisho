@@ -3,6 +3,20 @@ const builtin = @import("builtin");
 
 pub const message = "冬子は己のすぐ前をゆっくりと歩いている。";
 
+pub const stdout = std.io.getStdOut().writer();
+
+pub const Configuration = struct {
+    list_titles: bool,
+    gtk: bool,
+    verbose: bool,
+};
+
+pub var config = Configuration{
+    .list_titles = false,
+    .gtk = true,
+    .verbose = false,
+};
+
 pub const c = @cImport({
     @cInclude("iconv.h");
     @cInclude("mecab.h");
@@ -48,7 +62,8 @@ pub const Library = struct {
         var mecab = c.mecab_new(argv_a.len, cptr);
 
         var c_response = c.mecab_sparse_tostr(mecab, phrase);
-        std.log.info("mecab {s}", .{c_response});
+        if (config.verbose)
+            try stdout.print("mecab {s}", .{c_response});
         const type_ptr = @as([*:0]const u8, c_response);
         const ptr = std.mem.span(type_ptr);
         var line_iter = std.mem.split(u8, ptr, "\n");
@@ -80,7 +95,8 @@ pub const Library = struct {
             if (no_field) {
                 return MecabError.MecabNotEnoughFields;
             }
-            std.log.info("lemma & name {s} {s}", .{ lemma, name });
+            if (config.verbose)
+                try stdout.print("lemma & name {s} {s}", .{ lemma, name });
             if (std.mem.startsWith(u8, lemma, "*"))
                 lemma = name;
 
@@ -109,7 +125,7 @@ pub const EpwingError = error{
 pub const CsvDictionary = struct {
     path: []const u8,
     dict_hash_map: std.StringHashMap(usize),
-    title: []const u8,
+    title: [:0]const u8,
     pub fn init(path: []const u8) !CsvDictionary {
         var hash_map = std.StringHashMap(usize).init(allocator);
         var file = try std.fs.cwd().openFile(path, .{});
@@ -135,7 +151,7 @@ pub const CsvDictionary = struct {
         return CsvDictionary{
             .path = path,
             .dict_hash_map = hash_map,
-            .title = path,
+            .title = try allocator.dupeZ(u8, path),
         };
     }
 
@@ -169,7 +185,8 @@ pub const CsvDictionary = struct {
         var entries = std.ArrayList([]const u8).init(allocator);
         try names.append(try toNullTerminated(name));
         if (dict_result) |offset| {
-            std.log.info("Yes, at {}", .{offset});
+            if (config.verbose)
+                try stdout.print("Yes, at {}", .{offset});
             var description_slice = try self.getDescription(offset) orelse return Entry{ .names = names, .descriptions = entries };
             const num = std.mem.replace(u8, description_slice[1 .. description_slice.len - 1], "\\n", "\n", description_slice);
             description_slice.len -= num + 1;
@@ -181,7 +198,8 @@ pub const CsvDictionary = struct {
             return Entry{ .names = names, .descriptions = entries };
         } else {
             // If not found, create an empty window with a greyed out label
-            std.log.info("Nope, for {s}", .{lemma});
+            if (config.verbose)
+                try stdout.print("Nope, for {s}", .{lemma});
             return Entry{ .names = names, .descriptions = entries };
         }
     }
@@ -192,10 +210,10 @@ pub const EpwingDictionary = struct {
     book: c.EB_Book,
     iconv_to: c.iconv_t,
     iconv_from: c.iconv_t,
-    title: []const u8,
+    title: [:0]const u8,
 
     /// caller owns memory
-    fn iconvOwned(iconv: c.iconv_t, string: *[]const u8) ![]const u8 {
+    fn iconvOwned(iconv: c.iconv_t, string: *[]const u8) ![:0]const u8 {
         var conversion_ptr = try allocator.alloc(u8, string.len * 4);
         for (conversion_ptr[0..]) |*b| b.* = 0;
         var converted_lemma = conversion_ptr;
@@ -207,11 +225,11 @@ pub const EpwingDictionary = struct {
         var ret: usize = c.iconv(iconv, @ptrCast([*c][*c]u8, &target_string), &ibl, @ptrCast([*c][*c]u8, &conversion_ptr), &obl);
         _ = ret;
         var index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
-        var buff = try allocator.alloc(u8, index + 1);
+        var buff = try allocator.alloc(u8, index + 2);
         std.mem.copy(u8, buff, converted_lemma[0 .. index + 1]);
         allocator.free(converted_lemma);
 
-        return buff;
+        return buff[0..index :0];
     }
 
     pub fn init(path: []const u8) !EpwingDictionary {
@@ -233,7 +251,8 @@ pub const EpwingDictionary = struct {
         if (c.eb_subbook_list(&book, @ptrCast([*c]c.EB_Subbook_Code, subbook_list[0..]), &subbook_count) < 0) {
             return EpwingError.InvalidPath;
         }
-        std.log.info("{}", .{subbook_count});
+        if (config.verbose)
+            try stdout.print("{}", .{subbook_count});
         if (c.eb_set_subbook(&book, subbook_list[0]) < 0) {
             return EpwingError.InvalidPath;
         }
@@ -280,7 +299,8 @@ pub const EpwingDictionary = struct {
             return Entry{ .names = names, .descriptions = entries };
         }
 
-        std.log.info("hit {}", .{hitcount});
+        if (config.verbose)
+            try stdout.print("hit {}", .{hitcount});
 
         var i: u32 = 0;
 
@@ -388,7 +408,7 @@ pub const StarDictDictionary = struct {
 
     limits_list: std.ArrayList(StarDictLimits),
 
-    title: []const u8,
+    title: [:0]const u8,
 
     pub const StarDictError = error{
         NoDictFile,
@@ -438,7 +458,7 @@ pub const StarDictDictionary = struct {
         var index_path: []const u8 = undefined;
         var syn_path: []const u8 = undefined;
 
-        var title: []const u8 = path;
+        var title: [:0]const u8 = try allocator.dupeZ(u8, path);
 
         var has_syn = false;
         var is_zip = false;
@@ -489,7 +509,8 @@ pub const StarDictDictionary = struct {
         if (has_no_index)
             return StarDictError.NoIndexFile;
 
-        std.log.info("{s} and {s}", .{ index_path, dict_path });
+        if (config.verbose)
+            try stdout.print("{s} and {s}", .{ index_path, dict_path });
         var index_file = try std.fs.cwd().openFile(index_path, .{});
 
         var buf_reader = std.io.bufferedReader(index_file.reader());
@@ -542,14 +563,16 @@ pub const StarDictDictionary = struct {
             var zip_stream = stream.reader();
             var zip_buff = try zip_stream.readAllAlloc(allocator, std.math.maxInt(usize));
 
-            std.log.info("size: {}", .{zip_buff.len});
+            if (config.verbose)
+                try stdout.print("size: {}", .{zip_buff.len});
+
             return StarDictDictionary{
                 .zip_buff = zip_buff,
                 .is_zip = is_zip,
 
                 .limits_list = limits_list,
 
-                .path = path,
+                .path = try allocator.dupeZ(u8, path),
                 .index_path = index_path,
                 .syn_path = syn_path,
                 .dict_path = dict_path,
@@ -563,7 +586,7 @@ pub const StarDictDictionary = struct {
 
             .limits_list = limits_list,
 
-            .path = path,
+            .path = try allocator.dupeZ(u8, path),
             .index_path = index_path,
             .syn_path = syn_path,
             .dict_path = dict_path,
@@ -585,7 +608,8 @@ pub const StarDictDictionary = struct {
 
         for (self.limits_list.items) |entry| {
             if (std.mem.startsWith(u8, entry.name, lemma)) {
-                std.log.info("{any}", .{entry.name});
+                if (config.verbose)
+                    try stdout.print("{any}", .{entry.name});
                 var is_dupe = false;
                 for (names.items) |dupe_entry| {
                     if (std.mem.eql(u8, dupe_entry, entry.name)) {
@@ -628,7 +652,8 @@ pub const StarDictDictionary = struct {
         }
 
         if (!found) {
-            std.log.info("Nope, on star, for {s}", .{lemma});
+            if (config.verbose)
+                try stdout.print("Nope, on star, for {s}", .{lemma});
             return Entry{ .names = names, .descriptions = entries };
         }
 
