@@ -149,9 +149,9 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
         }
         query.entry.descriptions.deinit();
         query.entry.names.deinit();
-        current_entries.deinit();
     }
 
+    current_entries.deinit();
     current_entries = try library.queryLibrary(phrase, index);
 
     for (current_entries.items) |query| {

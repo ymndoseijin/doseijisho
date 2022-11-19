@@ -225,11 +225,10 @@ pub const EpwingDictionary = struct {
         var ret: usize = c.iconv(iconv, @ptrCast([*c][*c]u8, &target_string), &ibl, @ptrCast([*c][*c]u8, &conversion_ptr), &obl);
         _ = ret;
         var index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
-        var buff = try allocator.alloc(u8, index + 2);
-        std.mem.copy(u8, buff, converted_lemma[0 .. index + 1]);
+        var buff = try allocator.dupeZ(u8, converted_lemma[0..index]);
         allocator.free(converted_lemma);
 
-        return buff[0..index :0];
+        return buff;
     }
 
     pub fn init(path: []const u8) !EpwingDictionary {
