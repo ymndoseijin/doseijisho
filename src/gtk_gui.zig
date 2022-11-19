@@ -214,10 +214,9 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     var dict_names = std.ArrayList([*c]const u8).init(allocator);
 
     for (library.dicts) |dict_union| {
-        var dict = switch (dict_union) {
-            inline else => |*dict| dict,
-        };
-        dict_names.append(@ptrCast([*c]const u8, dict.title)) catch |err| @panic(@typeName(@TypeOf(err)));
+        switch (dict_union) {
+            inline else => |*dict| dict_names.append(@ptrCast([*c]const u8, dict.title)) catch |err| @panic(@typeName(@TypeOf(err))),
+        }
     }
 
     dict_names.append(null) catch |err| @panic(@typeName(@TypeOf(err)));

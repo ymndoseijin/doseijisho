@@ -21,6 +21,20 @@ const Configuration = defs.Configuration;
 
 const stdout = defs.stdout;
 
+fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
+    for (results.items) |query| {
+        var i: u32 = 0;
+        for (query.entry.names.items) |name| {
+            var desc = query.entry.descriptions.items[i];
+            try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
+            i += 1;
+        }
+
+        query.entry.descriptions.deinit();
+        query.entry.names.deinit();
+    }
+}
+
 pub fn main() !void {
     var config = defs.config;
 
@@ -107,34 +121,42 @@ pub fn main() !void {
 
     if (config.list_titles) {
         for (dicts.items) |dict_union| {
-            var dict = switch (dict_union) {
-                inline else => |*dict| dict,
-            };
-            try stdout.print("{s}\n", .{dict.title});
+            switch (dict_union) {
+                inline else => |*dict| try stdout.print("{s}\n", .{dict.title}),
+            }
         }
     }
 
-    if (free_arg_count == 3) {
+    if (free_arg_count >= 2) {
         for (dicts.items) |dict_union| {
-            var dict = switch (dict_union) {
-                inline else => |*dict| dict,
-            };
-            if (std.mem.eql(u8, dict.title, dict_name)) {
-                var results = try library.queryLibrary(@ptrCast([*c]const u8, try allocator.dupeZ(u8, search_query)), index);
-                for (results.items) |query| {
-                    var i: u32 = 0;
-                    for (query.entry.names.items) |name| {
-                        var desc = query.entry.descriptions.items[i];
-                        try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
-                        i += 1;
-                    }
+            switch (dict_union) {
+                inline else => |*dict| {
+                    if (std.mem.eql(u8, dict.title, dict_name)) {
+                        if (free_arg_count == 2) {
+                            var stdin = std.io.getStdIn().reader();
+                            var buf_reader = std.io.bufferedReader(stdin);
+                            var in_stream = buf_reader.reader();
 
-                    query.entry.descriptions.deinit();
-                    query.entry.names.deinit();
-                }
-                break;
+                            while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
+                                var sentinel_query = try allocator.dupeZ(u8, line);
+                                var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
+                                try printEntry(results);
+
+                                allocator.free(sentinel_query);
+                                allocator.free(line);
+                            }
+                        } else {
+                            var sentinel_query = try allocator.dupeZ(u8, search_query);
+                            var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
+                            try printEntry(results);
+
+                            allocator.free(sentinel_query);
+                        }
+                        break;
+                    }
+                    index += 1;
+                },
             }
-            index += 1;
         }
     }
 

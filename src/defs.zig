@@ -102,10 +102,9 @@ pub const Library = struct {
 
             if (self.dicts.len > 0) {
                 var dict_union = self.dicts[index];
-                var dict = switch (dict_union) {
-                    inline else => |*dict| dict,
+                const entry = switch (dict_union) {
+                    inline else => |*dict| try dict.getEntry(lemma, name),
                 };
-                const entry = try dict.getEntry(lemma, name);
                 try entries.append(QueryResult{ .entry = entry, .query_lemma = lemma, .query_name = name });
             }
         }
