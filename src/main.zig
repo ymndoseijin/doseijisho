@@ -26,7 +26,7 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
         var i: u32 = 0;
         for (query.entry.names.items) |name| {
             var desc = query.entry.descriptions.items[i];
-            try stdout.print("{s}:\n{s}\n\n", .{ name[0 .. name.len - 1], desc[0 .. desc.len - 1] });
+            try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
             i += 1;
         }
 
@@ -134,7 +134,8 @@ pub fn main() !void {
             const title = switch (dict_union) {
                 inline else => |*dict| dict.title,
             };
-            if (std.mem.eql(u8, title[0 .. title.len - 1], dict_name)) {
+
+            if (std.mem.eql(u8, title, dict_name)) {
                 if (free_arg_count == 2) {
                     var stdin = std.io.getStdIn().reader();
                     var buf_reader = std.io.bufferedReader(stdin);

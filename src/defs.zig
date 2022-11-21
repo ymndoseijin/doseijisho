@@ -223,7 +223,7 @@ pub const EpwingDictionary = struct {
         _ = ret;
         var index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
 
-        var buff = try allocator.dupeZ(u8, converted_lemma[0 .. index + 1]);
+        var buff = try allocator.dupeZ(u8, converted_lemma[0..index]);
 
         allocator.free(converted_lemma);
 
