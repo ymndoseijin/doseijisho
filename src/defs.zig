@@ -35,8 +35,8 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 pub const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
 pub const Entry = struct {
-    names: std.ArrayList([]const u8),
-    descriptions: std.ArrayList([]const u8),
+    names: std.ArrayList([:0]const u8),
+    descriptions: std.ArrayList([:0]const u8),
 };
 
 pub const QueryResult = struct {
@@ -178,8 +178,8 @@ pub const CsvDictionary = struct {
 
     pub fn getEntry(self: *CsvDictionary, lemma: []const u8, name: []const u8) !Entry {
         var dict_result = self.dict_hash_map.get(lemma);
-        var names = std.ArrayList([]const u8).init(allocator);
-        var entries = std.ArrayList([]const u8).init(allocator);
+        var names = std.ArrayList([:0]const u8).init(allocator);
+        var entries = std.ArrayList([:0]const u8).init(allocator);
         try names.append(try toNullTerminated(name));
         if (dict_result) |offset| {
             if (config.verbose)
@@ -280,8 +280,8 @@ pub const EpwingDictionary = struct {
         var hits: [50]c.EB_Hit = undefined;
         var lemma_sentinel = try toNullTerminated(lemma);
 
-        var entries = std.ArrayList([]const u8).init(allocator);
-        var names = std.ArrayList([]const u8).init(allocator);
+        var entries = std.ArrayList([:0]const u8).init(allocator);
+        var names = std.ArrayList([:0]const u8).init(allocator);
 
         var converted_lemma = try iconvOwned(self.iconv_to, &lemma_sentinel);
 
@@ -312,7 +312,7 @@ pub const EpwingDictionary = struct {
 
             var result_len: isize = 0;
 
-            if (c.eb_read_text(&self.book, null, null, null, buff.len, @ptrCast([*c]u8, buff), &result_len) == -1) {
+            if (c.eb_read_text(&self.book, null, null, null, buff.len - 1, @ptrCast([*c]u8, buff), &result_len) == -1) {
                 try names.append(try toNullTerminated(name));
                 return Entry{ .names = names, .descriptions = entries };
             }
@@ -324,7 +324,7 @@ pub const EpwingDictionary = struct {
 
             var response = try iconvOwned(self.iconv_from, &buff);
 
-            if (c.eb_read_heading(&self.book, null, null, null, buff.len, @ptrCast([*c]u8, buff), &result_len) == -1) {
+            if (c.eb_read_heading(&self.book, null, null, null, buff.len - 1, @ptrCast([*c]u8, buff), &result_len) == -1) {
                 try names.append(try toNullTerminated(name));
                 return Entry{ .names = names, .descriptions = entries };
             }
@@ -333,8 +333,8 @@ pub const EpwingDictionary = struct {
 
             allocator.free(buff);
 
-            try names.append(heading[0..heading.len]);
-            try entries.append(response[0..response.len]);
+            try names.append(heading);
+            try entries.append(response);
         }
 
         allocator.free(lemma_sentinel);
@@ -345,7 +345,7 @@ pub const EpwingDictionary = struct {
 };
 
 const StarDictLimits = struct {
-    name: []const u8,
+    name: [:0]const u8,
     start: usize,
     end: usize,
 };
@@ -600,8 +600,8 @@ pub const StarDictDictionary = struct {
         var dict_result: StarDictLimits = undefined;
         var found = false;
 
-        var entries = std.ArrayList([]const u8).init(allocator);
-        var names = std.ArrayList([]const u8).init(allocator);
+        var entries = std.ArrayList([:0]const u8).init(allocator);
+        var names = std.ArrayList([:0]const u8).init(allocator);
         _ = name;
 
         for (self.limits_list.items) |entry| {
