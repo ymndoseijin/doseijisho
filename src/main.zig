@@ -52,6 +52,7 @@ pub fn main() !void {
     var search_query = std.ArrayList([]const u8).init(allocator);
 
     var dicts = std.ArrayList(defs.Dictionary).init(allocator);
+    defer dicts.deinit();
 
     while (arg_iterator.next()) |arg| {
         switch (state) {
@@ -150,6 +151,7 @@ pub fn main() !void {
                 } else {
                     for (search_query.items) |query| {
                         var results = try library.queryLibrary(@ptrCast([*c]const u8, query), index);
+                        defer results.deinit();
                         try printEntry(results);
 
                         allocator.free(query);
