@@ -28,14 +28,36 @@ For common usage, I recommend using `zig build -Drelease-fast=true` instead. Whe
 ## Usage
 
 ```
-doseijisho [option] ...
-  -h --help shows a help command
+doseijisho [options] ... [dictionary] [search-queries] ...
+
+[dictionary] sets the target dictionary for search in the cli interface
+[search-queries] sets the search words to the target dictionary, it can take more than one word.
+
+If no [search-queries] are set, it will read from stdin by default. If [dictionary] and [search-queries] aren't set, it will trigger the GTK interface.
+
+  -h --help shows this menu
   -s --stardict [stardict-file] sets StarDict dictionary
   -t --tab [tab-file] sets tabulated dictionary
   -e --epwing [eb-file] sets EB(EPWING, EBG...) dictionary
+  -l --list list dictionary titles (separated by newlines)
+  -v --verbose enable verbose output (useful for debugging)
+  -c --cli-only disable all other interfaces besides cli
 ```
 
 For example:
 ```
 doseijisho -e ~/docs/dict/Daijirin -e ~/docs/dict/Kenkyusha_Waei_Daijiten_V5 -s /home/saturnian/docs/dict/stardict-kanjidic2-2.4.2/ -s ~/docs/dict/stardict-jmdict-ja-en-2.4.2/ -s ~/docs/dict/stardict-latin-english-2.4.2/ -s ~/docs/dict/stardict-enamdict-2.4.2
 ```
+
+For the cli:
+```
+doseijisho -e ~/docs/dict/Daijirin -e ~/docs/dict/Kenkyusha_Waei_Daijiten_V5 -c "研究社　新和英大辞典　第５版" "優しい"
+
+優しい:
+やさしい２【優しい】 <?>(yasashii)
+〔柔和な〕 gentle; tender; soft; meek; 〔優雅な〕 graceful; delicate; 〔愛情ある〕 affectionate; sweet; 〔温和な〕 mild(-mannered); 〔親切
+  〕 kind(hearted); kindly; 〔温順な〕 suave; quiet; 〔人当たりのよい〕 amiable; sweet.
+...
+```
+
+For other examples on the cli interface, you may look at the scripts on the root of the repository.
