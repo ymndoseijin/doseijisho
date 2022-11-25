@@ -36,7 +36,7 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
 }
 
 pub fn main() !void {
-    var config = defs.config;
+    var config = &defs.config;
 
     var arg_iterator = switch (builtin.os.tag) {
         .windows => try std.process.ArgIterator.initWithAllocator(allocator),

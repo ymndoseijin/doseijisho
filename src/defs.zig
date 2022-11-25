@@ -26,11 +26,6 @@ pub const c = @cImport({
     @cInclude("eb/error.h");
 });
 
-// caller owns memory
-pub fn toNullTerminated(text: []const u8) ![:0]const u8 {
-    return allocator.dupeZ(u8, text);
-}
-
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 pub const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
@@ -62,8 +57,9 @@ pub const Library = struct {
         var mecab = c.mecab_new(argv_a.len, cptr);
 
         var c_response = c.mecab_sparse_tostr(mecab, phrase);
+        try stdout.print("you failed {}\n", .{config.verbose});
         if (config.verbose)
-            try stdout.print("mecab {s}", .{c_response});
+            try stdout.print("mecab {s}\n", .{c_response});
         const type_ptr = @as([*:0]const u8, c_response);
         const ptr = std.mem.span(type_ptr);
         var line_iter = std.mem.split(u8, ptr, "\n");
@@ -78,7 +74,7 @@ pub const Library = struct {
             var i: u32 = 0;
             var name: []const u8 = undefined;
             if (tab_iter.next()) |word| {
-                name = try toNullTerminated(word);
+                name = try allocator.dupeZ(u8, word);
             } else {
                 return MecabError.MecabNotEnoughFields;
             }
@@ -96,7 +92,7 @@ pub const Library = struct {
                 return MecabError.MecabNotEnoughFields;
             }
             if (config.verbose)
-                try stdout.print("lemma & name {s} {s}", .{ lemma, name });
+                try stdout.print("lemma & name {s} {s}\n", .{ lemma, name });
             if (std.mem.startsWith(u8, lemma, "*"))
                 lemma = name;
 
@@ -180,23 +176,23 @@ pub const CsvDictionary = struct {
         var dict_result = self.dict_hash_map.get(lemma);
         var names = std.ArrayList([:0]const u8).init(allocator);
         var entries = std.ArrayList([:0]const u8).init(allocator);
-        try names.append(try toNullTerminated(name));
+        try names.append(try allocator.dupeZ(u8, name));
         if (dict_result) |offset| {
             if (config.verbose)
-                try stdout.print("Yes, at {}", .{offset});
+                try stdout.print("Yes, at {}\n", .{offset});
             var description_slice = try self.getDescription(offset) orelse return Entry{ .names = names, .descriptions = entries };
             const num = std.mem.replace(u8, description_slice[1 .. description_slice.len - 1], "\\n", "\n", description_slice);
             description_slice.len -= num + 1;
             description_slice[description_slice.len - 1] = 0;
 
-            var string_ptr = try toNullTerminated(description_slice);
+            var string_ptr = try allocator.dupeZ(u8, description_slice);
             try entries.append(string_ptr);
 
             return Entry{ .names = names, .descriptions = entries };
         } else {
             // If not found, create an empty window with a greyed out label
             if (config.verbose)
-                try stdout.print("Nope, for {s}", .{lemma});
+                try stdout.print("Nope, for {s}\n", .{lemma});
             return Entry{ .names = names, .descriptions = entries };
         }
     }
@@ -232,7 +228,7 @@ pub const EpwingDictionary = struct {
 
     pub fn init(path: []const u8) !EpwingDictionary {
         var book: c.EB_Book = undefined;
-        var path_null = try toNullTerminated(path);
+        var path_null = try allocator.dupeZ(u8, path);
         var subbook_count: i32 = 0;
         var subbook_list: [10]c.EB_Subbook_Code = undefined;
         var iconv_to = c.iconv_open("euc-jp", "UTF-8");
@@ -250,7 +246,7 @@ pub const EpwingDictionary = struct {
             return EpwingError.InvalidPath;
         }
         if (config.verbose)
-            try stdout.print("{}", .{subbook_count});
+            try stdout.print("{}\n", .{subbook_count});
         if (c.eb_set_subbook(&book, subbook_list[0]) < 0) {
             return EpwingError.InvalidPath;
         }
@@ -278,7 +274,7 @@ pub const EpwingDictionary = struct {
     /// caller owns memory
     pub fn getEntry(self: *EpwingDictionary, lemma: []const u8, name: []const u8) !Entry {
         var hits: [50]c.EB_Hit = undefined;
-        var lemma_sentinel = try toNullTerminated(lemma);
+        var lemma_sentinel = try allocator.dupeZ(u8, lemma);
 
         var entries = std.ArrayList([:0]const u8).init(allocator);
         var names = std.ArrayList([:0]const u8).init(allocator);
@@ -286,25 +282,25 @@ pub const EpwingDictionary = struct {
         var converted_lemma = try iconvOwned(self.iconv_to, &lemma_sentinel);
 
         if (c.eb_search_word(&self.book, @ptrCast([*c]const u8, converted_lemma)) == -1) {
-            try names.append(try toNullTerminated(name));
+            try names.append(try allocator.dupeZ(u8, name));
             return Entry{ .names = names, .descriptions = entries };
         }
 
         var hitcount: i32 = 0;
 
         if (c.eb_hit_list(&self.book, hits.len, @ptrCast([*c]c.EB_Hit, hits[0..]), &hitcount) == -1) {
-            try names.append(try toNullTerminated(name));
+            try names.append(try allocator.dupeZ(u8, name));
             return Entry{ .names = names, .descriptions = entries };
         }
 
         if (config.verbose)
-            try stdout.print("hit {}", .{hitcount});
+            try stdout.print("hit {}\n", .{hitcount});
 
         var i: u32 = 0;
 
         while (i < hitcount) : (i += 1) {
             if (c.eb_seek_text(&self.book, &hits[i].text) == -1) {
-                try names.append(try toNullTerminated(name));
+                try names.append(try allocator.dupeZ(u8, name));
                 return Entry{ .names = names, .descriptions = entries };
             }
 
@@ -313,19 +309,19 @@ pub const EpwingDictionary = struct {
             var result_len: isize = 0;
 
             if (c.eb_read_text(&self.book, null, null, null, buff.len - 1, @ptrCast([*c]u8, buff), &result_len) == -1) {
-                try names.append(try toNullTerminated(name));
+                try names.append(try allocator.dupeZ(u8, name));
                 return Entry{ .names = names, .descriptions = entries };
             }
 
             if (c.eb_seek_text(&self.book, &hits[i].heading) == -1) {
-                try names.append(try toNullTerminated(name));
+                try names.append(try allocator.dupeZ(u8, name));
                 return Entry{ .names = names, .descriptions = entries };
             }
 
             var response = try iconvOwned(self.iconv_from, &buff);
 
             if (c.eb_read_heading(&self.book, null, null, null, buff.len - 1, @ptrCast([*c]u8, buff), &result_len) == -1) {
-                try names.append(try toNullTerminated(name));
+                try names.append(try allocator.dupeZ(u8, name));
                 return Entry{ .names = names, .descriptions = entries };
             }
 
@@ -508,7 +504,7 @@ pub const StarDictDictionary = struct {
             return StarDictError.NoIndexFile;
 
         if (config.verbose)
-            try stdout.print("{s} and {s}", .{ index_path, dict_path });
+            try stdout.print("{s} and {s}\n", .{ index_path, dict_path });
         var index_file = try std.fs.cwd().openFile(index_path, .{});
 
         var buf_reader = std.io.bufferedReader(index_file.reader());
@@ -520,7 +516,7 @@ pub const StarDictDictionary = struct {
             var end = try getU32(@TypeOf(in_stream), in_stream) orelse break;
 
             try limits_list.append(StarDictLimits{
-                .name = try toNullTerminated(string),
+                .name = try allocator.dupeZ(u8, string),
                 .start = start,
                 .end = start + end,
             });
@@ -541,7 +537,7 @@ pub const StarDictDictionary = struct {
                 var entry = limits_list.items[index];
 
                 try limits_list.append(StarDictLimits{
-                    .name = try toNullTerminated(string),
+                    .name = try allocator.dupeZ(u8, string),
                     .start = entry.start,
                     .end = entry.end,
                 });
@@ -562,7 +558,7 @@ pub const StarDictDictionary = struct {
             var zip_buff = try zip_stream.readAllAlloc(allocator, std.math.maxInt(usize));
 
             if (config.verbose)
-                try stdout.print("size: {}", .{zip_buff.len});
+                try stdout.print("size: {}\n", .{zip_buff.len});
 
             return StarDictDictionary{
                 .zip_buff = zip_buff,
@@ -607,7 +603,7 @@ pub const StarDictDictionary = struct {
         for (self.limits_list.items) |entry| {
             if (std.mem.startsWith(u8, entry.name, lemma)) {
                 if (config.verbose)
-                    try stdout.print("{any}", .{entry.name});
+                    try stdout.print("{any}\n", .{entry.name});
                 var is_dupe = false;
                 for (names.items) |dupe_entry| {
                     if (std.mem.eql(u8, dupe_entry, entry.name)) {
@@ -623,9 +619,9 @@ pub const StarDictDictionary = struct {
                 if (self.is_zip) {
                     var description_slice = self.zip_buff[dict_result.start..dict_result.end];
 
-                    var string_ptr = try toNullTerminated(description_slice);
+                    var string_ptr = try allocator.dupeZ(u8, description_slice);
                     try entries.append(string_ptr);
-                    try names.append(entry.name);
+                    try names.append(try allocator.dupeZ(u8, entry.name));
                 } else {
                     var file = try std.fs.cwd().openFile(self.dict_path, .{});
                     var buf_reader = std.io.bufferedReader(file.reader());
@@ -637,10 +633,10 @@ pub const StarDictDictionary = struct {
                     var description_slice = try allocator.alloc(u8, dict_result.end - dict_result.start);
                     _ = try in_stream.readAll(description_slice);
 
-                    var string_ptr = try toNullTerminated(description_slice);
+                    var string_ptr = try allocator.dupeZ(u8, description_slice);
                     allocator.free(description_slice);
                     try entries.append(string_ptr);
-                    try names.append(entry.name);
+                    try names.append(try allocator.dupeZ(u8, entry.name));
 
                     file.close();
                 }
@@ -651,7 +647,7 @@ pub const StarDictDictionary = struct {
 
         if (!found) {
             if (config.verbose)
-                try stdout.print("Nope, on star, for {s}", .{lemma});
+                try stdout.print("Nope, on star, for {s}\n", .{lemma});
             return Entry{ .names = names, .descriptions = entries };
         }
 

@@ -2,6 +2,8 @@ const std = @import("std");
 const unicode = @import("std").unicode;
 const defs = @import("defs.zig");
 
+const stdout = defs.stdout;
+
 // why don't namespaces work?
 const Library = defs.Library;
 const Entry = defs.Entry;
@@ -307,7 +309,7 @@ pub fn gtkStart(lib: Library) void {
     library = lib;
     var status: i32 = 0;
 
-    const app = c.gtk_application_new("org.gtk.example", c.G_APPLICATION_FLAGS_NONE);
+    const app = c.gtk_application_new("me.doseijin.doseijisho", c.G_APPLICATION_FLAGS_NONE);
     _ = c.g_signal_connect_data(app, "activate", @ptrCast(c.GCallback, &gtkActivate), null, null, 0);
     status = c.g_application_run(@ptrCast(*c.GApplication, app), 0, null);
     c.g_object_unref(app);
