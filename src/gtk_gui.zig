@@ -151,6 +151,8 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
         }
         query.entry.descriptions.deinit();
         query.entry.names.deinit();
+        allocator.free(query.query_lemma);
+        allocator.free(query.query_name);
     }
 
     current_entries.deinit();
@@ -172,6 +174,7 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
 fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = widget;
     _ = data;
+    dict_index = 0;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
     if (library.dicts.len > 0) {
         queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));

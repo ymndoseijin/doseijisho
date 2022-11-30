@@ -50,62 +50,103 @@ pub const Library = struct {
 
     pub fn queryLibrary(self: *Library, phrase: [*c]const u8, index: usize) !std.ArrayList(QueryResult) {
         var entries = std.ArrayList(QueryResult).init(allocator);
+
+        if (self.dicts.len == 0) {
+            return entries;
+        }
+
         var argv_a = [_][*c]const u8{
             "mecab",
         };
         var cptr = @ptrCast([*c][*c]u8, &argv_a[0]);
-        var mecab = c.mecab_new(argv_a.len, cptr);
 
-        var c_response = c.mecab_sparse_tostr(mecab, phrase);
-        try stdout.print("you failed {}\n", .{config.verbose});
-        if (config.verbose)
-            try stdout.print("mecab {s}\n", .{c_response});
-        const type_ptr = @as([*:0]const u8, c_response);
-        const ptr = std.mem.span(type_ptr);
-        var line_iter = std.mem.split(u8, ptr, "\n");
+        var iter = std.mem.split(u8, std.mem.span(phrase), "\"");
 
-        while (line_iter.next()) |line| {
-            if (std.mem.startsWith(u8, line, "EOS") or line.len == 0)
+        var quote_i: u32 = 0;
+
+        while (iter.next()) |token| {
+            if (token.len == 0)
                 continue;
+            var dupe_token = try allocator.dupeZ(u8, token);
 
-            var field_iter = std.mem.split(u8, line, ",");
-            var tab_iter = std.mem.split(u8, line, "\t");
+            if (quote_i == 0) {
+                defer allocator.free(dupe_token);
 
-            var i: u32 = 0;
-            var name: []const u8 = undefined;
-            if (tab_iter.next()) |word| {
-                name = try allocator.dupeZ(u8, word);
-            } else {
-                return MecabError.MecabNotEnoughFields;
-            }
-            var lemma: []const u8 = undefined;
-            var no_field: bool = true;
-            while (field_iter.next()) |field| {
-                if (i == 6) {
-                    lemma = field;
-                    no_field = false;
-                    break;
+                var mecab = c.mecab_new(argv_a.len, cptr);
+                defer c.mecab_destroy(mecab);
+
+                var c_response = c.mecab_sparse_tostr(mecab, @ptrCast([*c]const u8, dupe_token));
+
+                if (config.verbose)
+                    try stdout.print("mecab {s}\n", .{c_response});
+
+                const type_ptr = @as([*:0]const u8, c_response);
+                const ptr = std.mem.span(type_ptr);
+
+                var line_iter = std.mem.split(u8, ptr, "\n");
+
+                while (line_iter.next()) |line| {
+                    if (std.mem.startsWith(u8, line, "EOS") or line.len == 0)
+                        continue;
+
+                    var field_iter = std.mem.split(u8, line, ",");
+                    var tab_iter = std.mem.split(u8, line, "\t");
+
+                    var i: u32 = 0;
+                    var name: []const u8 = undefined;
+                    if (tab_iter.next()) |word| {
+                        name = try allocator.dupeZ(u8, word);
+                    } else {
+                        return MecabError.MecabNotEnoughFields;
+                    }
+                    var lemma: []const u8 = undefined;
+                    var no_field: bool = true;
+                    while (field_iter.next()) |field| {
+                        if (i == 6) {
+                            if (std.mem.startsWith(u8, field, "*")) {
+                                lemma = try allocator.dupeZ(u8, name);
+                            } else {
+                                lemma = try allocator.dupeZ(u8, field);
+                            }
+                            no_field = false;
+                            break;
+                        }
+                        i += 1;
+                    }
+                    if (no_field) {
+                        return MecabError.MecabNotEnoughFields;
+                    }
+                    if (config.verbose)
+                        try stdout.print("lemma & name {s} {s}\n", .{ lemma, name });
+
+                    var dict_union = self.dicts[index];
+                    const entry = switch (dict_union) {
+                        inline else => |*dict| blk: {
+                            if (config.verbose) {
+                                var dict_name = @typeName(@TypeOf(dict.*));
+                                try stdout.print("Searching for \"{s}\" on {s}\n", .{ lemma, dict_name });
+                            }
+                            break :blk try dict.getEntry(lemma, name);
+                        },
+                    };
+                    try entries.append(QueryResult{ .entry = entry, .query_lemma = lemma, .query_name = name });
                 }
-                i += 1;
-            }
-            if (no_field) {
-                return MecabError.MecabNotEnoughFields;
-            }
-            if (config.verbose)
-                try stdout.print("lemma & name {s} {s}\n", .{ lemma, name });
-            if (std.mem.startsWith(u8, lemma, "*"))
-                lemma = name;
-
-            if (self.dicts.len > 0) {
+            } else {
                 var dict_union = self.dicts[index];
                 const entry = switch (dict_union) {
-                    inline else => |*dict| try dict.getEntry(lemma, name),
+                    inline else => |*dict| blk: {
+                        if (config.verbose) {
+                            var dict_name = @typeName(@TypeOf(dict.*));
+                            try stdout.print("Searching for \"{s}\" from quote on {s}\n", .{ dupe_token, dict_name });
+                        }
+                        break :blk try dict.getEntry(dupe_token, dupe_token);
+                    },
                 };
-                try entries.append(QueryResult{ .entry = entry, .query_lemma = lemma, .query_name = name });
+                try entries.append(QueryResult{ .entry = entry, .query_lemma = dupe_token, .query_name = try allocator.dupeZ(u8, dupe_token) });
             }
+            quote_i += 1;
+            quote_i = quote_i % 2;
         }
-
-        c.mecab_destroy(mecab);
 
         return entries;
     }
