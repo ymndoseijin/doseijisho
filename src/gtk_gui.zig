@@ -174,7 +174,7 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
 fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
     _ = widget;
     _ = data;
-    dict_index = 0;
+    entry_index = 0;
     current_phrase = c.gtk_entry_buffer_get_text(entry_buffer);
     if (library.dicts.len > 0) {
         queryDictionary(current_phrase, dict_index) catch |err| @panic(@typeName(@TypeOf(err)));
@@ -272,6 +272,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     // creating window for the list
     var scrolled_window = c.gtk_scrolled_window_new();
     c.gtk_scrolled_window_set_child(@ptrCast(*c.GtkScrolledWindow, scrolled_window), lv);
+    c.gtk_widget_set_size_request(scrolled_window, -1, 70);
 
     c.gtk_box_append(@ptrCast(*c.GtkBox, vbox), scrolled_window);
 
