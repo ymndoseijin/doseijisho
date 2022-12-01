@@ -65,6 +65,9 @@ pub const Library = struct {
         var quote_i: u32 = 0;
 
         while (iter.next()) |token| {
+            defer quote_i += 1;
+            defer quote_i = quote_i % 2;
+
             if (token.len == 0)
                 continue;
             var dupe_token = try allocator.dupeZ(u8, token);
@@ -144,8 +147,6 @@ pub const Library = struct {
                 };
                 try entries.append(QueryResult{ .entry = entry, .query_lemma = dupe_token, .query_name = try allocator.dupeZ(u8, dupe_token) });
             }
-            quote_i += 1;
-            quote_i = quote_i % 2;
         }
 
         return entries;
