@@ -72,7 +72,6 @@ pub fn main() !void {
         try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
 
         for (dict_config.dictionary.items) |path| {
-            try stdout.print("{s}:\n", .{path});
             var dict = try tag.field_type.init(path);
             try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
         }
