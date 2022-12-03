@@ -1,12 +1,11 @@
 const std = @import("std");
-const unicode = @import("std").unicode;
 const builtin = @import("builtin");
 
 const defs = @import("defs.zig");
+const ini_config = @import("ini_config.zig");
+const gtk = @import("gtk_gui.zig");
 
 pub const log_level: std.log.Level = .info;
-
-const gtk = @import("gtk_gui.zig");
 
 const allocator = defs.allocator;
 
@@ -39,16 +38,38 @@ pub fn main() !void {
     var dicts = std.ArrayList(defs.Dictionary).init(allocator);
     defer dicts.deinit();
 
+    var config_path: []const u8 = undefined;
+    defer allocator.free(config_path);
+
+    // Flag for saving current configuration to ini_path, it's not in the main configuration struct because it shouldn't be saved for natural reasons
+    var will_save = false;
+
+    // Configuration
+    if (std.os.getenv("XDG_CONFIG_HOME")) |v| {
+        config_path = try std.fmt.allocPrint(allocator, "{s}/doseijisho", .{v});
+    } else {
+        if (std.os.getenv("HOME")) |home| {
+            config_path = try std.fmt.allocPrint(allocator, "{s}/.config/doseijisho", .{home});
+        } else {
+            @panic("No $HOME env var");
+        }
+    }
+
     var config = &defs.config;
 
-    try defs.loadConfigForSection(Configuration, config, "main", "config.ini");
+    try std.fs.cwd().makePath(config_path);
+
+    var ini_path = try std.mem.concat(allocator, u8, &[_][]const u8{ config_path, "/config.ini" });
+    defer allocator.free(ini_path);
+
+    try ini_config.loadConfigForSection(Configuration, config, "main", ini_path);
 
     const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
 
     inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
         var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
 
-        try defs.loadConfigForSection(DictConfig, &dict_config, tag.name, "config.ini");
+        try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
 
         for (dict_config.dictionary.items) |path| {
             try stdout.print("{s}:\n", .{path});
@@ -56,6 +77,8 @@ pub fn main() !void {
             try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
         }
     }
+
+    // Args parsing
 
     var arg_iterator = switch (builtin.os.tag) {
         .windows => try std.process.ArgIterator.initWithAllocator(allocator),
@@ -73,32 +96,34 @@ pub fn main() !void {
     while (arg_iterator.next()) |arg| {
         switch (state) {
             ArgState.Arg => {
-                if (std.mem.startsWith(u8, arg, "-e") or
-                    std.mem.startsWith(u8, arg, "--epwing"))
+                if (std.mem.eql(u8, arg, "-e") or
+                    std.mem.eql(u8, arg, "--epwing"))
                 {
                     state = ArgState.Epwing;
-                } else if (std.mem.startsWith(u8, arg, "-t") or
-                    std.mem.startsWith(u8, arg, "--tab"))
+                } else if (std.mem.eql(u8, arg, "-t") or
+                    std.mem.eql(u8, arg, "--tab"))
                 {
                     state = ArgState.Csv;
-                } else if (std.mem.startsWith(u8, arg, "-l") or
-                    std.mem.startsWith(u8, arg, "--list"))
+                } else if (std.mem.eql(u8, arg, "-l") or
+                    std.mem.eql(u8, arg, "--list"))
                 {
                     config.list_titles = true;
-                } else if (std.mem.startsWith(u8, arg, "-v") or
-                    std.mem.startsWith(u8, arg, "--verbose"))
+                } else if (std.mem.eql(u8, arg, "-v") or
+                    std.mem.eql(u8, arg, "--verbose"))
                 {
                     config.verbose = true;
-                } else if (std.mem.startsWith(u8, arg, "-c") or
-                    std.mem.startsWith(u8, arg, "--cli-only"))
+                } else if (std.mem.eql(u8, arg, "--will-save")) {
+                    will_save = true;
+                } else if (std.mem.eql(u8, arg, "-c") or
+                    std.mem.eql(u8, arg, "--cli-only"))
                 {
                     config.gtk = false;
-                } else if (std.mem.startsWith(u8, arg, "-s") or
-                    std.mem.startsWith(u8, arg, "--stardict"))
+                } else if (std.mem.eql(u8, arg, "-s") or
+                    std.mem.eql(u8, arg, "--stardict"))
                 {
                     state = ArgState.StarDict;
-                } else if (std.mem.startsWith(u8, arg, "-h") or
-                    std.mem.startsWith(u8, arg, "--help"))
+                } else if (std.mem.eql(u8, arg, "-h") or
+                    std.mem.eql(u8, arg, "--help"))
                 {
                     try stdout.print(@embedFile("help.txt"), .{command.?});
                     std.os.exit(0);
@@ -113,6 +138,9 @@ pub fn main() !void {
                             try search_query.append(query);
                         }
                         free_arg_count += 1;
+                    } else {
+                        try stdout.print("Invalid argument {s}\n", .{arg});
+                        std.os.exit(255);
                     }
                 }
             },
@@ -136,6 +164,8 @@ pub fn main() !void {
 
     var library = defs.Library{ .dicts = dicts.items };
 
+    // Do stuff with it
+
     if (config.list_titles) {
         for (dicts.items) |dict_union| {
             switch (dict_union) {
@@ -145,7 +175,6 @@ pub fn main() !void {
     }
 
     var no_dict = true;
-
     if (free_arg_count >= 2) {
         for (dicts.items) |dict_union| {
             const title = switch (dict_union) {
@@ -187,22 +216,26 @@ pub fn main() !void {
         gtk.gtkStart(library);
     }
 
-    var file = try std.fs.cwd().createFile("save.ini", .{});
-    defer file.close();
+    // At the end, save file if required
 
-    try defs.writeSection(defs.Configuration, config.*, "main", file);
+    if (will_save) {
+        var file = try std.fs.cwd().createFile(ini_path, .{});
+        defer file.close();
 
-    inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
-        var tag_list = std.ArrayList([]const u8).init(allocator);
-        defer tag_list.deinit();
-        for (dicts.items) |dict_union| {
-            switch (dict_union) {
-                inline else => |*dict| if (*const tag.field_type == @TypeOf(dict))
-                    try tag_list.append(dict.path),
+        try ini_config.writeSection(defs.Configuration, config.*, "main", file);
+
+        inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
+            var tag_list = std.ArrayList([]const u8).init(allocator);
+            defer tag_list.deinit();
+            for (dicts.items) |dict_union| {
+                switch (dict_union) {
+                    inline else => |*dict| if (*const tag.field_type == @TypeOf(dict))
+                        try tag_list.append(dict.path),
+                }
             }
-        }
 
-        if (tag_list.items.len > 0)
-            try defs.writeSection(DictConfig, DictConfig{ .dictionary = tag_list }, tag.name, file);
+            if (tag_list.items.len > 0)
+                try ini_config.writeSection(DictConfig, DictConfig{ .dictionary = tag_list }, tag.name, file);
+        }
     }
 }

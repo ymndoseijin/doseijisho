@@ -1,4 +1,5 @@
 const std = @import("std");
+const ini_config = @import("ini_config.zig");
 const builtin = @import("builtin");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -14,109 +15,6 @@ pub const Configuration = struct {
     verbose: bool,
     dictionary: std.ArrayList([]const u8),
 };
-
-pub fn writeSection(comptime T: type, configuration: T, section: []const u8, file: std.fs.File) !void {
-    _ = try file.write("[");
-    _ = try file.write(section);
-    _ = try file.write("]\n");
-
-    inline for (@typeInfo(T).Struct.fields) |f, i| {
-        _ = i;
-
-        switch (f.field_type) {
-            bool => {
-                _ = try file.write(f.name);
-                _ = try file.write(" = ");
-                if (@field(configuration, f.name)) {
-                    _ = try file.write("true");
-                } else {
-                    _ = try file.write("false");
-                }
-                _ = try file.write("\n");
-            },
-            []const u8, []u8 => {
-                _ = try file.write(f.name);
-                _ = try file.write(" = ");
-                _ = try file.write(@field(configuration, f.name));
-                _ = try file.write("\n");
-            },
-            std.ArrayList([]const u8) => {
-                for (@field(configuration, f.name).items) |string| {
-                    _ = try file.write(f.name);
-                    _ = try file.write(" = ");
-                    _ = try file.write(string);
-                    _ = try file.write("\n");
-                }
-            },
-            else => @panic("Unknown type"),
-        }
-    }
-    _ = try file.write("\n");
-}
-
-pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []const u8, path: []const u8) !void {
-    var file = try std.fs.cwd().openFile(path, .{});
-    defer file.close();
-
-    var buf_reader = std.io.bufferedReader(file.reader());
-    var in_stream = buf_reader.reader();
-    var buf: [2048]u8 = undefined;
-
-    var current_section: [2048]u8 = undefined;
-    var section_len: usize = 0;
-
-    while (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-        if (line.len == 0)
-            continue;
-
-        if (line[0] == '[') {
-            if (line[line.len - 1] != ']')
-                @panic("Unclosed section");
-            std.mem.copy(u8, &current_section, line[1 .. line.len - 1]);
-            section_len = line.len - 1;
-            continue;
-        }
-
-        if (!std.mem.eql(u8, section, current_section[0 .. section_len - 1]))
-            continue;
-
-        var iter = std.mem.split(u8, line, "=");
-        var i: u32 = 0;
-        var field_name: []const u8 = undefined;
-
-        while (iter.next()) |in_field| {
-            var field = std.mem.trim(u8, in_field, " ");
-            if (i == 0) {
-                field_name = field;
-            } else if (i == 1) {
-                inline for (@typeInfo(T).Struct.fields) |f, j| {
-                    _ = j;
-                    if (std.mem.eql(u8, f.name, field_name)) {
-                        switch (f.field_type) {
-                            bool => {
-                                if (std.mem.eql(u8, field, "true")) {
-                                    @field(configuration, f.name) = true;
-                                } else if (std.mem.eql(u8, field, "false")) {
-                                    @field(configuration, f.name) = false;
-                                } else {
-                                    @panic("Invalid in Bool");
-                                }
-                            },
-                            []const u8, []u8 => @field(configuration, f.name) = try allocator.dupe(u8, field),
-                            std.ArrayList([]const u8) => {
-                                try @field(configuration, f.name).append(try allocator.dupe(u8, field));
-                            },
-                            else => @panic("Unknown type"),
-                        }
-                    }
-                }
-            } else {
-                @panic("Too many arguments");
-            }
-            i += 1;
-        }
-    }
-}
 
 pub var config = Configuration{
     .list_titles = false,
