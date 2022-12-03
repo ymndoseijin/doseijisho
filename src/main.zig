@@ -36,7 +36,26 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
 }
 
 pub fn main() !void {
+    var dicts = std.ArrayList(defs.Dictionary).init(allocator);
+    defer dicts.deinit();
+
     var config = &defs.config;
+
+    try defs.loadConfigForSection(Configuration, config, "main", "config.ini");
+
+    const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
+
+    inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
+        var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
+
+        try defs.loadConfigForSection(DictConfig, &dict_config, tag.name, "config.ini");
+
+        for (dict_config.dictionary.items) |path| {
+            try stdout.print("{s}:\n", .{path});
+            var dict = try tag.field_type.init(path);
+            try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
+        }
+    }
 
     var arg_iterator = switch (builtin.os.tag) {
         .windows => try std.process.ArgIterator.initWithAllocator(allocator),
@@ -50,9 +69,6 @@ pub fn main() !void {
 
     var dict_name: []const u8 = undefined;
     var search_query = std.ArrayList([]const u8).init(allocator);
-
-    var dicts = std.ArrayList(defs.Dictionary).init(allocator);
-    defer dicts.deinit();
 
     while (arg_iterator.next()) |arg| {
         switch (state) {
@@ -129,6 +145,7 @@ pub fn main() !void {
     }
 
     var no_dict = true;
+
     if (free_arg_count >= 2) {
         for (dicts.items) |dict_union| {
             const title = switch (dict_union) {
@@ -168,5 +185,24 @@ pub fn main() !void {
         }
     } else if (config.gtk) {
         gtk.gtkStart(library);
+    }
+
+    var file = try std.fs.cwd().createFile("save.ini", .{});
+    defer file.close();
+
+    try defs.writeSection(defs.Configuration, config.*, "main", file);
+
+    inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
+        var tag_list = std.ArrayList([]const u8).init(allocator);
+        defer tag_list.deinit();
+        for (dicts.items) |dict_union| {
+            switch (dict_union) {
+                inline else => |*dict| if (*const tag.field_type == @TypeOf(dict))
+                    try tag_list.append(dict.path),
+            }
+        }
+
+        if (tag_list.items.len > 0)
+            try defs.writeSection(DictConfig, DictConfig{ .dictionary = tag_list }, tag.name, file);
     }
 }
