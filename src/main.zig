@@ -55,7 +55,7 @@ pub fn main() !void {
         }
     }
 
-    var config = &defs.config;
+    var config = &defs.main_config;
 
     try std.fs.cwd().makePath(config_path);
 
@@ -64,15 +64,20 @@ pub fn main() !void {
 
     try ini_config.loadConfigForSection(Configuration, config, "main", ini_path);
 
-    const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
+    const DictTypeConfig = struct { dictionary: std.ArrayList([]const u8) };
 
     inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
-        var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
+        var type_config = DictTypeConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
 
-        try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
+        try ini_config.loadConfigForSection(DictTypeConfig, &type_config, tag.name, ini_path);
 
-        for (dict_config.dictionary.items) |path| {
-            var dict = try tag.field_type.init(path);
+        for (type_config.dictionary.items) |path| {
+            var dict_config = tag.field_type.dict_config.init();
+
+            try ini_config.loadConfigForSection(tag.field_type.dict_config, &dict_config, path, ini_path);
+
+            var dict = try tag.field_type.init(path, dict_config);
+
             try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
         }
     }
@@ -91,6 +96,8 @@ pub fn main() !void {
 
     var dict_name: []const u8 = undefined;
     var search_query = std.ArrayList([]const u8).init(allocator);
+
+    // free index
 
     while (arg_iterator.next()) |arg| {
         switch (state) {
@@ -144,17 +151,17 @@ pub fn main() !void {
                 }
             },
             ArgState.Epwing => {
-                var dict = try defs.EpwingDictionary.init(arg);
+                var dict = try defs.EpwingDictionary.init(arg, defs.EmptyConfig{});
                 try dicts.append(defs.Dictionary{ .epwing = dict });
                 state = ArgState.Arg;
             },
             ArgState.StarDict => {
-                var dict = try defs.StarDictDictionary.init(arg);
+                var dict = try defs.StarDictDictionary.init(arg, defs.EmptyConfig{});
                 try dicts.append(defs.Dictionary{ .stardict = dict });
                 state = ArgState.Arg;
             },
             ArgState.Csv => {
-                var dict = try defs.CsvDictionary.init(arg);
+                var dict = try defs.CsvDictionary.init(arg, defs.EmptyConfig{});
                 try dicts.append(defs.Dictionary{ .csv = dict });
                 state = ArgState.Arg;
             },
@@ -234,7 +241,7 @@ pub fn main() !void {
             }
 
             if (tag_list.items.len > 0)
-                try ini_config.writeSection(DictConfig, DictConfig{ .dictionary = tag_list }, tag.name, file);
+                try ini_config.writeSection(DictTypeConfig, DictTypeConfig{ .dictionary = tag_list }, tag.name, file);
         }
     }
 }
