@@ -28,7 +28,8 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
         var i: u32 = 0;
         for (query.entry.names.items) |name| {
             var desc = query.entry.descriptions.items[i];
-            try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
+            try stdout.print("{s}:\n{s}\n", .{ name, desc });
+            try stdout.writeByte('\x00');
             i += 1;
         }
     }
