@@ -14,6 +14,7 @@ const ArgState = enum {
     Epwing,
     Csv,
     StarDict,
+    EntryNum,
 };
 
 const Configuration = defs.Configuration;
@@ -28,13 +29,27 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
             try stdout.print("{s}:\n{s}\n\n", .{ name, desc });
             i += 1;
         }
-
-        query.entry.descriptions.deinit();
-        query.entry.names.deinit();
     }
 }
 
 pub fn main() !void {
+    var config = Configuration{
+        .list_titles = false,
+        .dictionary = std.ArrayList([]const u8).init(allocator),
+        .max_entries = 100,
+        .gtk = true,
+        .verbose = false,
+    };
+
+    defer {
+        for (config.dictionary.items) |path| allocator.free(path);
+        config.dictionary.deinit();
+    }
+
+    defer if (builtin.mode == .Debug) {
+        _ = defs.gpa.deinit();
+    };
+
     var dicts = std.ArrayList(defs.Dictionary).init(allocator);
     defer dicts.deinit();
 
@@ -55,30 +70,25 @@ pub fn main() !void {
         }
     }
 
-    var config = &defs.main_config;
-
     try std.fs.cwd().makePath(config_path);
 
     var ini_path = try std.mem.concat(allocator, u8, &[_][]const u8{ config_path, "/config.ini" });
     defer allocator.free(ini_path);
 
-    try ini_config.loadConfigForSection(Configuration, config, "main", ini_path);
+    try ini_config.loadConfigForSection(Configuration, &config, "main", ini_path);
 
-    const DictTypeConfig = struct { dictionary: std.ArrayList([]const u8) };
+    const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
 
     inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
-        var type_config = DictTypeConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
+        var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
+        defer dict_config.dictionary.deinit();
 
-        try ini_config.loadConfigForSection(DictTypeConfig, &type_config, tag.name, ini_path);
+        try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
 
-        for (type_config.dictionary.items) |path| {
-            var dict_config = tag.field_type.dict_config.init();
-
-            try ini_config.loadConfigForSection(tag.field_type.dict_config, &dict_config, path, ini_path);
-
-            var dict = try tag.field_type.init(path, dict_config);
-
+        for (dict_config.dictionary.items) |path| {
+            var dict = try tag.type.init(path, config);
             try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
+            allocator.free(path);
         }
     }
 
@@ -96,8 +106,7 @@ pub fn main() !void {
 
     var dict_name: []const u8 = undefined;
     var search_query = std.ArrayList([]const u8).init(allocator);
-
-    // free index
+    defer search_query.deinit();
 
     while (arg_iterator.next()) |arg| {
         switch (state) {
@@ -151,24 +160,25 @@ pub fn main() !void {
                 }
             },
             ArgState.Epwing => {
-                var dict = try defs.EpwingDictionary.init(arg, defs.EmptyConfig{});
+                var dict = try defs.EpwingDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .epwing = dict });
                 state = ArgState.Arg;
             },
             ArgState.StarDict => {
-                var dict = try defs.StarDictDictionary.init(arg, defs.EmptyConfig{});
+                var dict = try defs.StarDictDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .stardict = dict });
                 state = ArgState.Arg;
             },
             ArgState.Csv => {
-                var dict = try defs.CsvDictionary.init(arg, defs.EmptyConfig{});
+                var dict = try defs.CsvDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .csv = dict });
                 state = ArgState.Arg;
             },
+            ArgState.EntryNum => {},
         }
     }
 
-    var library = defs.Library{ .dicts = dicts.items };
+    var library = defs.Library{ .config = config, .dicts = dicts.items };
 
     // Do stuff with it
 
@@ -182,6 +192,8 @@ pub fn main() !void {
 
     var no_dict = true;
     if (free_arg_count >= 2) {
+        defer allocator.free(dict_name);
+
         for (dicts.items) |dict_union| {
             const title = switch (dict_union) {
                 inline else => |*dict| dict.title,
@@ -204,9 +216,11 @@ pub fn main() !void {
                 } else {
                     for (search_query.items) |query| {
                         var results = try library.queryLibrary(@ptrCast([*c]const u8, query), index);
-                        defer results.deinit();
+
                         try printEntry(results);
 
+                        for (results.items) |lib_query| lib_query.deinit();
+                        results.deinit();
                         allocator.free(query);
                     }
                 }
@@ -228,20 +242,30 @@ pub fn main() !void {
         var file = try std.fs.cwd().createFile(ini_path, .{});
         defer file.close();
 
-        try ini_config.writeSection(defs.Configuration, config.*, "main", file);
+        try ini_config.writeSection(defs.Configuration, config, "main", file);
 
         inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
             var tag_list = std.ArrayList([]const u8).init(allocator);
             defer tag_list.deinit();
             for (dicts.items) |dict_union| {
                 switch (dict_union) {
-                    inline else => |*dict| if (*const tag.field_type == @TypeOf(dict))
+                    inline else => |*dict| if (*const tag.type == @TypeOf(dict))
                         try tag_list.append(dict.path),
                 }
             }
 
             if (tag_list.items.len > 0)
-                try ini_config.writeSection(DictTypeConfig, DictTypeConfig{ .dictionary = tag_list }, tag.name, file);
+                try ini_config.writeSection(DictConfig, DictConfig{ .dictionary = tag_list }, tag.name, file);
+        }
+    }
+
+    // And then, deinit all
+    for (dicts.items) |*dict_union| {
+        switch (dict_union.*) {
+            inline else => |*dict| {
+                //@compileError(@typeName(@TypeOf(dict)));
+                dict.deinit();
+            },
         }
     }
 }

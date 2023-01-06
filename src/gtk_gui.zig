@@ -4,7 +4,6 @@ const defs = @import("defs.zig");
 
 const stdout = defs.stdout;
 
-// why don't namespaces work?
 const Library = defs.Library;
 const Entry = defs.Entry;
 const c = defs.c;
@@ -143,16 +142,7 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
 
     while (current_entries.items.len > 0) {
         const query = current_entries.pop();
-        for (query.entry.names.items) |name| {
-            allocator.free(name);
-        }
-        for (query.entry.descriptions.items) |desc| {
-            allocator.free(desc);
-        }
-        query.entry.descriptions.deinit();
-        query.entry.names.deinit();
-        allocator.free(query.query_lemma);
-        allocator.free(query.query_name);
+        query.deinit();
     }
 
     current_entries.deinit();
@@ -317,4 +307,18 @@ pub fn gtkStart(lib: Library) void {
     _ = c.g_signal_connect_data(app, "activate", @ptrCast(c.GCallback, &gtkActivate), null, null, 0);
     status = c.g_application_run(@ptrCast(*c.GApplication, app), 0, null);
     c.g_object_unref(app);
+    while (current_entries.items.len > 0) {
+        const query = current_entries.pop();
+        for (query.entry.names.items) |name| allocator.free(name);
+        for (query.entry.descriptions.items) |desc| allocator.free(desc);
+
+        query.entry.descriptions.deinit();
+        query.entry.names.deinit();
+
+        allocator.free(query.query_lemma);
+        allocator.free(query.query_name);
+    }
+
+    current_entries.deinit();
+    current_label_widgets.deinit();
 }

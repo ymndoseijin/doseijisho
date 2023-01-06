@@ -10,7 +10,7 @@ pub fn writeSection(comptime T: type, configuration: T, section: []const u8, fil
     inline for (@typeInfo(T).Struct.fields) |f, i| {
         _ = i;
 
-        switch (f.field_type) {
+        switch (f.type) {
             bool => {
                 _ = try file.write(f.name);
                 _ = try file.write(" = ");
@@ -97,7 +97,7 @@ pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []cons
             } else if (i == 1) {
                 inline for (@typeInfo(T).Struct.fields) |f| {
                     if (std.mem.eql(u8, f.name, field_name)) {
-                        try assignFromString(f.field_type, &@field(configuration, f.name), field);
+                        try assignFromString(f.type, &@field(configuration, f.name), field);
                     }
                 }
             } else {
