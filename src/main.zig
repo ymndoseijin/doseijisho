@@ -9,6 +9,8 @@ pub const log_level: std.log.Level = .info;
 
 const allocator = defs.allocator;
 
+const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
+
 const ArgState = enum {
     Arg,
     Epwing,
@@ -58,8 +60,9 @@ pub fn main() !void {
 
     // Flag for saving current configuration to ini_path, it's not in the main configuration struct because it shouldn't be saved for natural reasons
     var will_save = false;
+    var read_config = true;
 
-    // Configuration
+    // set ini_path
     if (std.os.getenv("XDG_CONFIG_HOME")) |v| {
         config_path = try std.fmt.allocPrint(allocator, "{s}/doseijisho", .{v});
     } else {
@@ -74,23 +77,6 @@ pub fn main() !void {
 
     var ini_path = try std.mem.concat(allocator, u8, &[_][]const u8{ config_path, "/config.ini" });
     defer allocator.free(ini_path);
-
-    try ini_config.loadConfigForSection(Configuration, &config, "main", ini_path);
-
-    const DictConfig = struct { dictionary: std.ArrayList([]const u8) };
-
-    inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
-        var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
-        defer dict_config.dictionary.deinit();
-
-        try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
-
-        for (dict_config.dictionary.items) |path| {
-            var dict = try tag.type.init(path, config);
-            try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
-            allocator.free(path);
-        }
-    }
 
     // Args parsing
 
@@ -119,6 +105,10 @@ pub fn main() !void {
                     std.mem.eql(u8, arg, "--tab"))
                 {
                     state = ArgState.Csv;
+                } else if (std.mem.eql(u8, arg, "-i") or
+                    std.mem.eql(u8, arg, "--ignore-config"))
+                {
+                    read_config = false;
                 } else if (std.mem.eql(u8, arg, "-l") or
                     std.mem.eql(u8, arg, "--list"))
                 {
@@ -175,6 +165,24 @@ pub fn main() !void {
                 state = ArgState.Arg;
             },
             ArgState.EntryNum => {},
+        }
+    }
+
+    // Configuration
+    if (read_config) {
+        try ini_config.loadConfigForSection(Configuration, &config, "main", ini_path);
+
+        inline for (@typeInfo(defs.Dictionary).Union.fields) |tag| {
+            var dict_config = DictConfig{ .dictionary = std.ArrayList([]const u8).init(allocator) };
+            defer dict_config.dictionary.deinit();
+
+            try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
+
+            for (dict_config.dictionary.items) |path| {
+                var dict = try tag.type.init(path, config);
+                try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
+                allocator.free(path);
+            }
         }
     }
 
