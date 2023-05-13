@@ -23,7 +23,7 @@ $ paru -S zig-dev-bin // project works with zig master
 ```
 
 Then, you can simply clone the repository and run `zig build run` to start the program. The binary is currently in `zig-out/bin/doseijisho`.
-For common usage, I recommend using `zig build -Drelease-fast=true` instead. When debugging, it's better to disable it.
+For common usage, I recommend using `zig build -Doptimize=ReleaseFast` instead. When debugging, it's better to disable it.
 
 ## Usage
 
