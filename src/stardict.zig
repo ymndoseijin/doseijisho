@@ -233,7 +233,7 @@ pub const StarDictDictionary = struct {
             var zip_reader = std.io.bufferedReader(file.reader());
             var file_in_stream = zip_reader.reader();
 
-            var stream = try std.compress.gzip.gzipStream(allocator, file_in_stream);
+            var stream = try std.compress.gzip.decompress(allocator, file_in_stream);
             defer stream.deinit();
 
             var zip_stream = stream.reader();

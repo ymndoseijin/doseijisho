@@ -7,7 +7,7 @@ pub fn writeSection(comptime T: type, configuration: T, section: []const u8, fil
     _ = try file.write(section);
     _ = try file.write("]\n");
 
-    inline for (@typeInfo(T).Struct.fields) |f, i| {
+    inline for (@typeInfo(T).Struct.fields, 0..) |f, i| {
         _ = i;
 
         switch (f.type) {
