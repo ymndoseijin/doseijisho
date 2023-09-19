@@ -8,8 +8,10 @@ If no [search-queries] are set, it will read from stdin by default. If [dictiona
 
   -h --help shows this menu
   -s --stardict [stardict-file] sets StarDict dictionary
-  -t --tab [tab-file] sets tabulated dictionary
   -e --epwing [eb-file] sets EB(EPWING, EBG...) dictionary
+  -t --tab [tab-file] sets tabulated dictionary
+  -i --ignore-config ignores config in $XDG_CONFIG_HOME/doseijisho 
   -l --list list dictionary titles (separated by newlines)
   -v --verbose enable verbose output (useful for debugging)
   -c --cli-only disable all other interfaces besides cli
+  --will-save saves the current dictionary list and options to $XDG_CONFIG_HOME/doseijisho

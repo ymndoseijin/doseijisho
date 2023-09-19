@@ -23,7 +23,7 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.linkSystemLibraryName("mecab");
     exe.linkSystemLibrary("gtk4");
-    exe.addIncludePath("/usr/include/eb/");
+    exe.addIncludePath(.{ .path = "/usr/include/eb/" });
     exe.linkSystemLibraryName("eb");
     exe.linkLibC();
     // This declares intent for the executable to be installed into the

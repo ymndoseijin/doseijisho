@@ -53,10 +53,10 @@ fn gtkBind(arg_self: ?*c.GtkSignalListItemFactory, arg_listitem: ?*c.GtkListItem
     var user_data = arg_user_data;
     _ = @TypeOf(user_data);
     var lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(listitem);
-    var strobj: ?*c.GtkStringObject = @ptrCast(?*c.GtkStringObject, c.gtk_list_item_get_item(listitem));
+    var strobj: ?*c.GtkStringObject = @as(?*c.GtkStringObject, @ptrCast(c.gtk_list_item_get_item(listitem)));
     var text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
-    c.gtk_label_set_text(@ptrCast(?*c.GtkLabel, lb), text);
-    c.gtk_label_set_attributes(@ptrCast(*c.GtkLabel, lb), description_attributes);
+    c.gtk_label_set_text(@as(?*c.GtkLabel, @ptrCast(lb)), text);
+    c.gtk_label_set_attributes(@as(*c.GtkLabel, @ptrCast(lb)), description_attributes);
     c.gtk_widget_set_margin_top(lb, 5);
     c.gtk_widget_set_margin_end(lb, 17);
     c.gtk_widget_set_margin_start(lb, 17);
@@ -83,13 +83,17 @@ fn setEntry(in_index: usize) !void {
 
     while (current_label_widgets.items.len > 0) {
         var widget = current_label_widgets.pop();
-        c.gtk_box_remove(@ptrCast(*c.GtkBox, description_widget), widget);
+        c.gtk_box_remove(@as(*c.GtkBox, @ptrCast(description_widget)), widget);
     }
 
     var i: u32 = 0;
-    for (query.entry.descriptions.items) |description| {
-        var name_string = @ptrCast([*c]const u8, query.entry.names.items[i]);
-        var string = @ptrCast([*c]const u8, description);
+
+    const result_query = query.entries orelse return;
+
+    for (result_query.entries.items) |entry| {
+        var description = entry.description;
+        var name_string = @as([*c]const u8, @ptrCast(entry.name));
+        var string = @as([*c]const u8, @ptrCast(description));
 
         var name_widget = c.gtk_label_new(name_string);
 
@@ -97,10 +101,10 @@ fn setEntry(in_index: usize) !void {
         c.gtk_widget_set_halign(name_widget, c.GTK_ALIGN_FILL);
         c.gtk_widget_set_hexpand(name_widget, 1);
 
-        c.gtk_label_set_selectable(@ptrCast(*c.GtkLabel, name_widget), 1);
-        c.gtk_label_set_xalign(@ptrCast(*c.GtkLabel, name_widget), 0.0);
-        c.gtk_label_set_wrap(@ptrCast(*c.GtkLabel, name_widget), 1);
-        c.gtk_label_set_attributes(@ptrCast(*c.GtkLabel, name_widget), name_attributes);
+        c.gtk_label_set_selectable(@as(*c.GtkLabel, @ptrCast(name_widget)), 1);
+        c.gtk_label_set_xalign(@as(*c.GtkLabel, @ptrCast(name_widget)), 0.0);
+        c.gtk_label_set_wrap(@as(*c.GtkLabel, @ptrCast(name_widget)), 1);
+        c.gtk_label_set_attributes(@as(*c.GtkLabel, @ptrCast(name_widget)), name_attributes);
 
         gtkSetMargins(name_widget, 10);
 
@@ -110,10 +114,10 @@ fn setEntry(in_index: usize) !void {
         c.gtk_widget_set_halign(label_widget, c.GTK_ALIGN_FILL);
         c.gtk_widget_set_hexpand(label_widget, 1);
 
-        c.gtk_label_set_selectable(@ptrCast(*c.GtkLabel, label_widget), 1);
-        c.gtk_label_set_xalign(@ptrCast(*c.GtkLabel, label_widget), 0.0);
-        c.gtk_label_set_wrap(@ptrCast(*c.GtkLabel, label_widget), 1);
-        c.gtk_label_set_attributes(@ptrCast(*c.GtkLabel, label_widget), description_attributes);
+        c.gtk_label_set_selectable(@as(*c.GtkLabel, @ptrCast(label_widget)), 1);
+        c.gtk_label_set_xalign(@as(*c.GtkLabel, @ptrCast(label_widget)), 0.0);
+        c.gtk_label_set_wrap(@as(*c.GtkLabel, @ptrCast(label_widget)), 1);
+        c.gtk_label_set_attributes(@as(*c.GtkLabel, @ptrCast(label_widget)), description_attributes);
 
         gtkSetMargins(label_widget, 10);
 
@@ -123,9 +127,9 @@ fn setEntry(in_index: usize) !void {
         try current_label_widgets.append(label_widget);
         try current_label_widgets.append(separator_widget);
 
-        c.gtk_box_append(@ptrCast(*c.GtkBox, description_widget), name_widget);
-        c.gtk_box_append(@ptrCast(*c.GtkBox, description_widget), label_widget);
-        c.gtk_box_append(@ptrCast(*c.GtkBox, description_widget), separator_widget);
+        c.gtk_box_append(@as(*c.GtkBox, @ptrCast(description_widget)), name_widget);
+        c.gtk_box_append(@as(*c.GtkBox, @ptrCast(description_widget)), label_widget);
+        c.gtk_box_append(@as(*c.GtkBox, @ptrCast(description_widget)), separator_widget);
         i += 1;
     }
 }
@@ -146,16 +150,16 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
     current_entries = try library.queryLibrary(phrase, index);
 
     for (current_entries.items) |query| {
-        try string_array.append(@ptrCast([*c]const u8, query.query_name));
+        try string_array.append(@as([*c]const u8, @ptrCast(query.query_name)));
     }
 
     try string_array.append(null);
 
-    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast([*c]const [*c]const u8, string_array.items));
-    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(*c.GListModel, sl));
+    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@as([*c]const [*c]const u8, @ptrCast(string_array.items)));
+    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@as(*c.GListModel, @ptrCast(sl)));
 
-    _ = c.gtk_list_view_set_model(@ptrCast(*c.GtkListView, lv), @ptrCast(*c.GtkSelectionModel, ns));
-    _ = c.gtk_list_view_set_single_click_activate(@ptrCast(*c.GtkListView, lv), 1);
+    _ = c.gtk_list_view_set_model(@as(*c.GtkListView, @ptrCast(lv)), @as(*c.GtkSelectionModel, @ptrCast(ns)));
+    _ = c.gtk_list_view_set_single_click_activate(@as(*c.GtkListView, @ptrCast(lv)), 1);
 }
 
 fn gtkClicked(widget: *c.GtkWidget, data: c.gpointer) callconv(.C) void {
@@ -189,40 +193,40 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     }
 
     var window = c.gtk_application_window_new(app);
-    c.gtk_window_set_title(@ptrCast(*c.GtkWindow, window), "土星辞書");
-    c.gtk_window_set_default_size(@ptrCast(*c.GtkWindow, window), 200, 200);
+    c.gtk_window_set_title(@as(*c.GtkWindow, @ptrCast(window)), "土星辞書");
+    c.gtk_window_set_default_size(@as(*c.GtkWindow, @ptrCast(window)), 200, 200);
 
     var dictionary_panel = c.gtk_paned_new(c.GTK_ORIENTATION_HORIZONTAL);
 
-    c.gtk_window_set_child(@ptrCast(*c.GtkWindow, window), dictionary_panel);
+    c.gtk_window_set_child(@as(*c.GtkWindow, @ptrCast(window)), dictionary_panel);
 
     var dict_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
-    _ = c.g_signal_connect_data(dict_factory, "setup", @ptrCast(c.GCallback, &gtkSetup), null, null, 0);
-    _ = c.g_signal_connect_data(dict_factory, "bind", @ptrCast(c.GCallback, &gtkBind), null, null, 0);
+    _ = c.g_signal_connect_data(dict_factory, "setup", @as(c.GCallback, @ptrCast(&gtkSetup)), null, null, 0);
+    _ = c.g_signal_connect_data(dict_factory, "bind", @as(c.GCallback, @ptrCast(&gtkBind)), null, null, 0);
 
     dict_lv = c.gtk_list_view_new(null, dict_factory);
-    _ = c.g_signal_connect_data(dict_lv, "activate", @ptrCast(c.GCallback, &gtkActivateDictList), null, null, 0);
+    _ = c.g_signal_connect_data(dict_lv, "activate", @as(c.GCallback, @ptrCast(&gtkActivateDictList)), null, null, 0);
 
     var dict_names = std.ArrayList([*c]const u8).init(allocator);
 
     for (library.dicts) |dict_union| {
         switch (dict_union) {
-            inline else => |*dict| dict_names.append(@ptrCast([*c]const u8, dict.title)) catch |err| @panic(@typeName(@TypeOf(err))),
+            inline else => |*dict| dict_names.append(@as([*c]const u8, @ptrCast(dict.title))) catch |err| @panic(@typeName(@TypeOf(err))),
         }
     }
 
     dict_names.append(null) catch |err| @panic(@typeName(@TypeOf(err)));
 
-    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast([*c]const [*c]const u8, dict_names.items));
-    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(*c.GListModel, sl));
+    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@as([*c]const [*c]const u8, @ptrCast(dict_names.items)));
+    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@as(*c.GListModel, @ptrCast(sl)));
 
-    _ = c.gtk_list_view_set_model(@ptrCast(*c.GtkListView, dict_lv), @ptrCast(*c.GtkSelectionModel, ns));
-    _ = c.gtk_list_view_set_single_click_activate(@ptrCast(*c.GtkListView, dict_lv), 1);
+    _ = c.gtk_list_view_set_model(@as(*c.GtkListView, @ptrCast(dict_lv)), @as(*c.GtkSelectionModel, @ptrCast(ns)));
+    _ = c.gtk_list_view_set_single_click_activate(@as(*c.GtkListView, @ptrCast(dict_lv)), 1);
 
     var dict_scroll = c.gtk_scrolled_window_new();
-    c.gtk_scrolled_window_set_child(@ptrCast(*c.GtkScrolledWindow, dict_scroll), dict_lv);
+    c.gtk_scrolled_window_set_child(@as(*c.GtkScrolledWindow, @ptrCast(dict_scroll)), dict_lv);
 
-    c.gtk_paned_set_start_child(@ptrCast(*c.GtkPaned, dictionary_panel), dict_scroll);
+    c.gtk_paned_set_start_child(@as(*c.GtkPaned, @ptrCast(dictionary_panel)), dict_scroll);
 
     gtkSetMargins(dict_scroll, 5);
 
@@ -234,34 +238,34 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_set_valign(vbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_hexpand(vbox, 1);
     c.gtk_widget_set_vexpand(vbox, 1);
-    c.gtk_box_set_spacing(@ptrCast(*c.GtkBox, vbox), 20);
+    c.gtk_box_set_spacing(@as(*c.GtkBox, @ptrCast(vbox)), 20);
 
-    c.gtk_paned_set_end_child(@ptrCast(*c.GtkPaned, dictionary_panel), vbox);
+    c.gtk_paned_set_end_child(@as(*c.GtkPaned, @ptrCast(dictionary_panel)), vbox);
 
     // creating the hbox for the search box
     var hbox = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0);
-    c.gtk_box_set_spacing(@ptrCast(*c.GtkBox, hbox), 10);
+    c.gtk_box_set_spacing(@as(*c.GtkBox, @ptrCast(hbox)), 10);
     c.gtk_widget_set_halign(hbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_valign(hbox, c.GTK_ALIGN_START);
     c.gtk_widget_set_hexpand(hbox, 1);
 
-    c.gtk_box_append(@ptrCast(*c.GtkBox, vbox), hbox);
+    c.gtk_box_append(@as(*c.GtkBox, @ptrCast(vbox)), hbox);
 
     // creating the resulting words list view
     var words_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
-    _ = c.g_signal_connect_data(words_factory, "setup", @ptrCast(c.GCallback, &gtkSetup), null, null, 0);
-    _ = c.g_signal_connect_data(words_factory, "bind", @ptrCast(c.GCallback, &gtkBind), null, null, 0);
+    _ = c.g_signal_connect_data(words_factory, "setup", @as(c.GCallback, @ptrCast(&gtkSetup)), null, null, 0);
+    _ = c.g_signal_connect_data(words_factory, "bind", @as(c.GCallback, @ptrCast(&gtkBind)), null, null, 0);
 
     lv = c.gtk_list_view_new(null, words_factory);
-    _ = c.g_signal_connect_data(lv, "activate", @ptrCast(c.GCallback, &gtkActivateList), null, null, 0);
-    c.gtk_orientable_set_orientation(@ptrCast(*c.GtkOrientable, lv), c.GTK_ORIENTATION_HORIZONTAL);
+    _ = c.g_signal_connect_data(lv, "activate", @as(c.GCallback, @ptrCast(&gtkActivateList)), null, null, 0);
+    c.gtk_orientable_set_orientation(@as(*c.GtkOrientable, @ptrCast(lv)), c.GTK_ORIENTATION_HORIZONTAL);
 
     // creating window for the list
     var scrolled_window = c.gtk_scrolled_window_new();
-    c.gtk_scrolled_window_set_child(@ptrCast(*c.GtkScrolledWindow, scrolled_window), lv);
+    c.gtk_scrolled_window_set_child(@as(*c.GtkScrolledWindow, @ptrCast(scrolled_window)), lv);
     c.gtk_widget_set_size_request(scrolled_window, -1, 70);
 
-    c.gtk_box_append(@ptrCast(*c.GtkBox, vbox), scrolled_window);
+    c.gtk_box_append(@as(*c.GtkBox, @ptrCast(vbox)), scrolled_window);
 
     // setting up the description widget
     description_widget = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0);
@@ -269,7 +273,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_set_hexpand(vbox, 1);
     c.gtk_widget_set_valign(vbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_vexpand(vbox, 1);
-    c.gtk_box_set_spacing(@ptrCast(*c.GtkBox, vbox), 20);
+    c.gtk_box_set_spacing(@as(*c.GtkBox, @ptrCast(vbox)), 20);
     gtkSetMargins(vbox, 20);
 
     // setting up scrolling for the description widget
@@ -277,9 +281,9 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_set_valign(description_scroll, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_vexpand(description_scroll, 1);
 
-    c.gtk_scrolled_window_set_child(@ptrCast(*c.GtkScrolledWindow, description_scroll), description_widget);
+    c.gtk_scrolled_window_set_child(@as(*c.GtkScrolledWindow, @ptrCast(description_scroll)), description_widget);
 
-    c.gtk_box_append(@ptrCast(*c.GtkBox, vbox), description_scroll);
+    c.gtk_box_append(@as(*c.GtkBox, @ptrCast(vbox)), description_scroll);
 
     var button = c.gtk_button_new_with_label("Search");
 
@@ -289,10 +293,10 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_set_halign(entry, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_hexpand(entry, 1);
 
-    _ = c.g_signal_connect_data(button, "clicked", @ptrCast(c.GCallback, &gtkClicked), null, null, 0);
+    _ = c.g_signal_connect_data(button, "clicked", @as(c.GCallback, @ptrCast(&gtkClicked)), null, null, 0);
 
-    c.gtk_box_append(@ptrCast(*c.GtkBox, hbox), entry);
-    c.gtk_box_append(@ptrCast(*c.GtkBox, hbox), button);
+    c.gtk_box_append(@as(*c.GtkBox, @ptrCast(hbox)), entry);
+    c.gtk_box_append(@as(*c.GtkBox, @ptrCast(hbox)), button);
     c.gtk_widget_show(window);
 }
 
@@ -301,8 +305,8 @@ pub fn gtkStart(lib: Library) void {
     var status: i32 = 0;
 
     const app = c.gtk_application_new("me.doseijin.doseijisho", c.G_APPLICATION_FLAGS_NONE);
-    _ = c.g_signal_connect_data(app, "activate", @ptrCast(c.GCallback, &gtkActivate), null, null, 0);
-    status = c.g_application_run(@ptrCast(*c.GApplication, app), 0, null);
+    _ = c.g_signal_connect_data(app, "activate", @as(c.GCallback, @ptrCast(&gtkActivate)), null, null, 0);
+    status = c.g_application_run(@as(*c.GApplication, @ptrCast(app)), 0, null);
     c.g_object_unref(app);
 
     for (current_entries.items) |query| query.deinit();

@@ -25,12 +25,9 @@ const stdout = defs.stdout;
 
 fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
     for (results.items) |query| {
-        var i: u32 = 0;
-        for (query.entry.names.items) |name| {
-            var desc = query.entry.descriptions.items[i];
-            try stdout.print("{s}:\n{s}\n", .{ name, desc });
+        for (query.entries.?.entries.items) |entry| {
+            try stdout.print("{s}:\n{s}\n", .{ entry.name, entry.description });
             try stdout.writeByte('\x00');
-            i += 1;
         }
     }
 }
@@ -216,7 +213,7 @@ pub fn main() !void {
 
                     while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
                         var sentinel_query = try allocator.dupeZ(u8, line);
-                        var results = try library.queryLibrary(@ptrCast([*c]const u8, sentinel_query), index);
+                        var results = try library.queryLibrary(@as([*c]const u8, @ptrCast(sentinel_query)), index);
                         try printEntry(results);
 
                         allocator.free(sentinel_query);
@@ -224,7 +221,7 @@ pub fn main() !void {
                     }
                 } else {
                     for (search_query.items) |query| {
-                        var results = try library.queryLibrary(@ptrCast([*c]const u8, query), index);
+                        var results = try library.queryLibrary(@as([*c]const u8, @ptrCast(query)), index);
 
                         try printEntry(results);
 

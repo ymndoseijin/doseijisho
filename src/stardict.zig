@@ -31,14 +31,14 @@ pub const NgramIterator = struct {
     pub fn next(self: *NgramIterator) !?[]const u8 {
         if (self.offset == self.string.len)
             return null;
-        var nu: u32 = @intCast(u32, self.n);
+        var nu: u32 = @as(u32, @intCast(self.n));
         var buff = try allocator.alloc(u8, nu);
         var i: u32 = 0;
         while (i < nu) : (i += 1) {
-            if (self.offset + @intCast(i32, i) > self.string.len - 1 or self.offset + @intCast(i32, i) < 0 or self.string.len == 0) {
+            if (self.offset + @as(i32, @intCast(i)) > self.string.len - 1 or self.offset + @as(i32, @intCast(i)) < 0 or self.string.len == 0) {
                 buff[i] = ' ';
             } else {
-                var index: u32 = @intCast(u32, self.offset + @intCast(i32, i));
+                var index: u32 = @as(u32, @intCast(self.offset + @as(i32, @intCast(i))));
                 buff[i] = self.string[index];
             }
         }
@@ -248,7 +248,7 @@ pub const StarDictDictionary = struct {
 
                 .limits_list = limits_list,
 
-                .path = try allocator.dupeZ(u8, path),
+                .path = try allocator.dupe(u8, path),
                 .index_path = index_path,
                 .dict_path = dict_path,
                 .title = title,
@@ -270,12 +270,12 @@ pub const StarDictDictionary = struct {
         };
     }
 
-    pub fn getEntry(self: *StarDictDictionary, lemma: []const u8, name: []const u8) !Entry {
+    pub fn getEntryBatch(self: *StarDictDictionary, lemma: []const u8, name: []const u8) !defs.EntryBatch {
         var dict_result: StarDictLimits = undefined;
         var found = false;
 
-        var entries = std.ArrayList([:0]const u8).init(allocator);
-        var names = std.ArrayList([:0]const u8).init(allocator);
+        var batch = defs.EntryBatch{ .entries = std.ArrayList(Entry).init(allocator) };
+
         _ = name;
 
         for (self.limits_list.items) |entry| {
@@ -283,8 +283,8 @@ pub const StarDictDictionary = struct {
                 if (self.config.verbose)
                     try stdout.print("{any}\n", .{entry.name});
                 var is_dupe = false;
-                for (names.items) |dupe_entry| {
-                    if (std.mem.eql(u8, dupe_entry, entry.name)) {
+                for (batch.entries.items) |dupe_entry| {
+                    if (std.mem.eql(u8, dupe_entry.name, entry.name)) {
                         is_dupe = true;
                         break;
                     }
@@ -298,8 +298,7 @@ pub const StarDictDictionary = struct {
                     var description_slice = self.zip_buff[dict_result.start..dict_result.end];
 
                     var string_ptr = try allocator.dupeZ(u8, description_slice);
-                    try entries.append(string_ptr);
-                    try names.append(try allocator.dupeZ(u8, entry.name));
+                    try batch.entries.append(Entry{ .name = try allocator.dupeZ(u8, entry.name), .description = string_ptr, .score = 0 });
                 } else {
                     var file = try std.fs.cwd().openFile(self.dict_path, .{});
                     var buf_reader = std.io.bufferedReader(file.reader());
@@ -313,23 +312,21 @@ pub const StarDictDictionary = struct {
 
                     var string_ptr = try allocator.dupeZ(u8, description_slice);
                     allocator.free(description_slice);
-                    try entries.append(string_ptr);
-                    try names.append(try allocator.dupeZ(u8, entry.name));
+                    try batch.entries.append(Entry{ .name = try allocator.dupeZ(u8, entry.name), .description = string_ptr, .score = 0 });
 
                     file.close();
                 }
             }
 
-            if (entries.items.len >= self.config.max_entries)
+            if (batch.entries.items.len >= self.config.max_entries)
                 break;
         }
 
         if (!found) {
             if (self.config.verbose)
                 try stdout.print("Nope, on star, for {s}\n", .{lemma});
-            return Entry{ .names = names, .descriptions = entries };
         }
 
-        return Entry{ .names = names, .descriptions = entries };
+        return batch;
     }
 };
