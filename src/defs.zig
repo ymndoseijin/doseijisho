@@ -86,7 +86,7 @@ pub var gpa = std.heap.GeneralPurposeAllocator(.{
 }){};
 pub const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
-pub const message = "冬子は己のすぐ前をゆっくりと歩いている。";
+pub const message = "この雪みたいに美しい毒電波がきたんだよ";
 
 pub const stdout = std.io.getStdOut().writer();
 
