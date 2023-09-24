@@ -35,7 +35,7 @@ pub fn writeSection(comptime T: type, configuration: T, section: []const u8, fil
                     _ = try file.write("\n");
                 }
             },
-            else => @panic("Unknown type"),
+            else => return error.UnknownType,
         }
     }
     _ = try file.write("\n");
@@ -49,14 +49,14 @@ fn assignFromString(comptime T: type, value: *T, string: []const u8) !void {
             } else if (std.mem.eql(u8, string, "false")) {
                 value.* = false;
             } else {
-                @panic("Invalid in Bool");
+                return error.ExpectedBool;
             }
         },
         []const u8, []u8 => value = try allocator.dupe(u8, string),
         std.ArrayList([]const u8) => {
             try value.append(try allocator.dupe(u8, string));
         },
-        else => @panic("Unknown type"),
+        else => return error.UnexpectedType,
     }
 }
 
@@ -76,8 +76,7 @@ pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []cons
             continue;
 
         if (line[0] == '[') {
-            if (line[line.len - 1] != ']')
-                @panic("Unclosed section");
+            if (line[line.len - 1] != ']') return error.UnclosedSection;
             std.mem.copy(u8, &current_section, line[1 .. line.len - 1]);
             section_len = line.len - 1;
             continue;
@@ -101,7 +100,7 @@ pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []cons
                     }
                 }
             } else {
-                @panic("Too many arguments");
+                return error.TooManyArguments;
             }
             i += 1;
         }

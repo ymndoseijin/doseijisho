@@ -33,9 +33,14 @@ fn printEntry(results: std.ArrayList(defs.QueryResult)) !void {
 }
 
 pub fn main() !void {
+    defer if (builtin.mode == .Debug) {
+        _ = defs.gpa.deinit();
+    };
+
     var config = Configuration{
         .list_titles = false,
         .dictionary = std.ArrayList([]const u8).init(allocator),
+        .exclude = std.ArrayList([]const u8).init(allocator),
         .max_entries = 100,
         .gtk = true,
         .verbose = false,
@@ -44,11 +49,10 @@ pub fn main() !void {
     defer {
         for (config.dictionary.items) |path| allocator.free(path);
         config.dictionary.deinit();
-    }
 
-    defer if (builtin.mode == .Debug) {
-        _ = defs.gpa.deinit();
-    };
+        for (config.exclude.items) |path| allocator.free(path);
+        config.exclude.deinit();
+    }
 
     var dicts = std.ArrayList(defs.Dictionary).init(allocator);
     defer dicts.deinit();

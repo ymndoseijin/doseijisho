@@ -95,6 +95,11 @@ pub const Configuration = struct {
     max_entries: u32,
     gtk: bool,
     verbose: bool,
+
+    // exclude entries containing
+    exclude: std.ArrayList([]const u8),
+
+    // dictionary paths
     dictionary: std.ArrayList([]const u8),
 };
 
@@ -233,6 +238,26 @@ pub const Library = struct {
         var dict_union = self.dicts[index];
         for (entries.items) |*request| {
             var result = try dict_union.getEntryBatch(request.query_lemma, request.query_name);
+
+            var i: usize = 0;
+            while (i < result.entries.items.len) {
+                var delete = false;
+                const entry = result.entries.items[i];
+                for (self.config.exclude.items) |exclude| {
+                    const description_res = std.mem.indexOf(u8, entry.description, exclude);
+                    const name_res = std.mem.indexOf(u8, entry.name, exclude);
+                    if (description_res != null or name_res != null) {
+                        delete = true;
+                        break;
+                    }
+                }
+                if (delete) {
+                    var deleted = result.entries.swapRemove(i);
+                    deleted.deinit();
+                } else {
+                    i += 1;
+                }
+            }
 
             const func = struct {
                 pub fn inner(_: void, a: Entry, b: Entry) bool {
