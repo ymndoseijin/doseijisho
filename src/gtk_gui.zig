@@ -74,8 +74,6 @@ fn setEntry(in_index: usize) !void {
         c.gtk_box_remove(@ptrCast(description_widget), widget);
     }
 
-    var i: u32 = 0;
-
     const result_query = query.entries orelse return;
 
     for (result_query.entries.items) |entry| {
@@ -120,7 +118,6 @@ fn setEntry(in_index: usize) !void {
         c.gtk_box_append(@ptrCast(description_widget), name_widget);
         c.gtk_box_append(@ptrCast(description_widget), string_widget);
         c.gtk_box_append(@ptrCast(description_widget), separator_widget);
-        i += 1;
     }
 }
 
