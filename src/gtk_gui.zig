@@ -37,10 +37,13 @@ fn gtkSetMargins(widget: *c.GtkWidget, size: i32) void {
     c.gtk_widget_set_margin_top(widget, size);
 }
 
+// setup the dictionary list
 fn gtkSetup(_: ?*c.GtkListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
     var lb: [*c]c.GtkWidget = c.gtk_label_new(null);
     c.gtk_list_item_set_child(list_item, lb);
 }
+
+// bind the dictionary list
 fn gtkBind(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
     var lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
     var strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
@@ -48,6 +51,7 @@ fn gtkBind(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpo
 
     c.gtk_label_set_text(@ptrCast(lb), text);
     c.gtk_label_set_attributes(@ptrCast(lb), description_attributes);
+    c.gtk_label_set_wrap(@ptrCast(lb), 1);
     c.gtk_widget_set_margin_top(lb, 5);
     c.gtk_widget_set_margin_end(lb, 17);
     c.gtk_widget_set_margin_start(lb, 17);
@@ -250,6 +254,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     // creating window for the list
     var scrolled_window = c.gtk_scrolled_window_new();
     c.gtk_scrolled_window_set_child(@ptrCast(scrolled_window), lv);
+    c.gtk_scrolled_window_set_overlay_scrolling(@ptrCast(scrolled_window), 0);
     c.gtk_widget_set_size_request(scrolled_window, -1, 70);
 
     c.gtk_box_append(@ptrCast(vbox), scrolled_window);
