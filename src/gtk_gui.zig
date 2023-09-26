@@ -57,6 +57,19 @@ fn gtkBind(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpo
     c.gtk_widget_set_margin_start(lb, 17);
 }
 
+// bind the resulting words list
+fn gtkBindWords(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
+    var lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
+    var strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
+    var text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
+
+    c.gtk_label_set_text(@ptrCast(lb), text);
+    c.gtk_label_set_attributes(@ptrCast(lb), description_attributes);
+    c.gtk_widget_set_margin_top(lb, 5);
+    c.gtk_widget_set_margin_end(lb, 17);
+    c.gtk_widget_set_margin_start(lb, 17);
+}
+
 var current_label_widgets = std.ArrayList(*c.GtkWidget).init(allocator);
 
 fn gtkActivateDictList(_: *c.GtkListView, position: u32, _: c.gpointer) callconv(.C) void {
@@ -245,7 +258,8 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     // creating the resulting words list view
     var words_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
     _ = c.g_signal_connect_data(words_factory, "setup", @ptrCast(&gtkSetup), null, null, 0);
-    _ = c.g_signal_connect_data(words_factory, "bind", @ptrCast(&gtkBind), null, null, 0);
+    // different one so it doesn't wrap
+    _ = c.g_signal_connect_data(words_factory, "bind", @ptrCast(&gtkBindWords), null, null, 0);
 
     lv = c.gtk_list_view_new(null, words_factory);
     _ = c.g_signal_connect_data(lv, "activate", @ptrCast(&gtkActivateList), null, null, 0);
