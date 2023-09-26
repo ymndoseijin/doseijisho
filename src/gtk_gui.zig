@@ -280,6 +280,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_widget_set_halign(entry, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_hexpand(entry, 1);
 
+    _ = c.g_signal_connect_data(entry, "activate", @ptrCast(&gtkClicked), null, null, 0);
     _ = c.g_signal_connect_data(button, "clicked", @ptrCast(&gtkClicked), null, null, 0);
 
     c.gtk_box_append(@ptrCast(hbox), entry);
