@@ -39,15 +39,15 @@ fn gtkSetMargins(widget: *c.GtkWidget, size: i32) void {
 
 // setup the dictionary list
 fn gtkSetup(_: ?*c.GtkListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
-    var lb: [*c]c.GtkWidget = c.gtk_label_new(null);
+    const lb: [*c]c.GtkWidget = c.gtk_label_new(null);
     c.gtk_list_item_set_child(list_item, lb);
 }
 
 // bind the dictionary list
 fn gtkBind(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
-    var lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
-    var strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
-    var text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
+    const lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
+    const strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
+    const text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
 
     c.gtk_label_set_text(@ptrCast(lb), text);
     c.gtk_label_set_attributes(@ptrCast(lb), description_attributes);
@@ -59,9 +59,9 @@ fn gtkBind(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpo
 
 // bind the resulting words list
 fn gtkBindWords(_: ?*c.GtkSignalListItemFactory, list_item: ?*c.GtkListItem, _: c.gpointer) callconv(.C) void {
-    var lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
-    var strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
-    var text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
+    const lb: [*c]c.GtkWidget = c.gtk_list_item_get_child(list_item);
+    const strobj: ?*c.GtkStringObject = @ptrCast(c.gtk_list_item_get_item(list_item));
+    const text: [*c]const u8 = c.gtk_string_object_get_string(strobj);
 
     c.gtk_label_set_text(@ptrCast(lb), text);
     c.gtk_label_set_attributes(@ptrCast(lb), description_attributes);
@@ -87,19 +87,19 @@ fn setEntry(in_index: usize) !void {
     const query = current_entries.items[index];
 
     while (current_label_widgets.items.len > 0) {
-        var widget = current_label_widgets.pop();
+        const widget = current_label_widgets.pop();
         c.gtk_box_remove(@ptrCast(description_widget), widget);
     }
 
     const result_query = query.entries orelse return;
 
     for (result_query.entries.items) |entry| {
-        var description = entry.description;
-        var name_string = entry.name;
-        var string = description;
+        const description = entry.description;
+        const name_string = entry.name;
+        const string = description;
 
-        var name_widget = c.gtk_label_new(name_string);
-        var name_label: ?*c.GtkLabel = @ptrCast(name_widget);
+        const name_widget = c.gtk_label_new(name_string);
+        const name_label: ?*c.GtkLabel = @ptrCast(name_widget);
 
         c.gtk_widget_set_valign(name_widget, c.GTK_ALIGN_START);
         c.gtk_widget_set_halign(name_widget, c.GTK_ALIGN_FILL);
@@ -112,8 +112,8 @@ fn setEntry(in_index: usize) !void {
 
         gtkSetMargins(name_widget, 10);
 
-        var string_widget = c.gtk_label_new(string);
-        var string_label: ?*c.GtkLabel = @ptrCast(string_widget);
+        const string_widget = c.gtk_label_new(string);
+        const string_label: ?*c.GtkLabel = @ptrCast(string_widget);
 
         c.gtk_widget_set_valign(string_widget, c.GTK_ALIGN_START);
         c.gtk_widget_set_halign(string_widget, c.GTK_ALIGN_FILL);
@@ -126,7 +126,7 @@ fn setEntry(in_index: usize) !void {
 
         gtkSetMargins(string_widget, 10);
 
-        var separator_widget = c.gtk_separator_new(c.GTK_ORIENTATION_HORIZONTAL);
+        const separator_widget = c.gtk_separator_new(c.GTK_ORIENTATION_HORIZONTAL);
 
         try current_label_widgets.append(name_widget);
         try current_label_widgets.append(string_widget);
@@ -159,8 +159,8 @@ fn queryDictionary(phrase: [*c]const u8, index: usize) !void {
 
     try string_array.append(null);
 
-    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast(string_array.items));
-    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(sl));
+    const sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast(string_array.items));
+    const ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(sl));
 
     _ = c.gtk_list_view_set_model(@ptrCast(lv), @ptrCast(ns));
     _ = c.gtk_list_view_set_single_click_activate(@ptrCast(lv), 1);
@@ -182,29 +182,29 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
 
     {
         description_attributes = c.pango_attr_list_new().?;
-        var df = c.pango_font_description_new().?;
+        const df = c.pango_font_description_new().?;
         c.pango_font_description_set_size(df, 14 * c.PANGO_SCALE);
-        var attr = c.pango_attr_font_desc_new(df).?;
+        const attr = c.pango_attr_font_desc_new(df).?;
         c.pango_attr_list_insert(description_attributes, attr);
     }
 
     {
         name_attributes = c.pango_attr_list_new().?;
-        var df = c.pango_font_description_new().?;
+        const df = c.pango_font_description_new().?;
         c.pango_font_description_set_size(df, 21 * c.PANGO_SCALE);
-        var attr = c.pango_attr_font_desc_new(df).?;
+        const attr = c.pango_attr_font_desc_new(df).?;
         c.pango_attr_list_insert(name_attributes, attr);
     }
 
-    var window = c.gtk_application_window_new(app);
+    const window = c.gtk_application_window_new(app);
     c.gtk_window_set_title(@ptrCast(window), "土星辞書");
     c.gtk_window_set_default_size(@ptrCast(window), 200, 200);
 
-    var dictionary_panel = c.gtk_paned_new(c.GTK_ORIENTATION_HORIZONTAL);
+    const dictionary_panel = c.gtk_paned_new(c.GTK_ORIENTATION_HORIZONTAL);
 
     c.gtk_window_set_child(@ptrCast(window), dictionary_panel);
 
-    var dict_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
+    const dict_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
     _ = c.g_signal_connect_data(dict_factory, "setup", @ptrCast(&gtkSetup), null, null, 0);
     _ = c.g_signal_connect_data(dict_factory, "bind", @ptrCast(&gtkBind), null, null, 0);
 
@@ -221,13 +221,13 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
 
     dict_names.append(null) catch |err| @panic(@typeName(@TypeOf(err)));
 
-    var sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast(dict_names.items));
-    var ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(sl));
+    const sl: ?*c.GtkStringList = c.gtk_string_list_new(@ptrCast(dict_names.items));
+    const ns: ?*c.GtkNoSelection = c.gtk_no_selection_new(@ptrCast(sl));
 
     _ = c.gtk_list_view_set_model(@ptrCast(dict_lv), @ptrCast(ns));
     _ = c.gtk_list_view_set_single_click_activate(@ptrCast(dict_lv), 1);
 
-    var dict_scroll = c.gtk_scrolled_window_new();
+    const dict_scroll = c.gtk_scrolled_window_new();
     c.gtk_scrolled_window_set_child(@ptrCast(dict_scroll), dict_lv);
 
     c.gtk_paned_set_start_child(@ptrCast(dictionary_panel), dict_scroll);
@@ -237,7 +237,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     dict_names.deinit();
 
     // creating the vbox for the search bar and description
-    var vbox = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0);
+    const vbox = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0);
     c.gtk_widget_set_halign(vbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_valign(vbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_hexpand(vbox, 1);
@@ -247,7 +247,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_paned_set_end_child(@ptrCast(dictionary_panel), vbox);
 
     // creating the hbox for the search box
-    var hbox = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0);
+    const hbox = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0);
     c.gtk_box_set_spacing(@ptrCast(hbox), 10);
     c.gtk_widget_set_halign(hbox, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_valign(hbox, c.GTK_ALIGN_START);
@@ -256,7 +256,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_box_append(@ptrCast(vbox), hbox);
 
     // creating the resulting words list view
-    var words_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
+    const words_factory: ?*c.GtkListItemFactory = c.gtk_signal_list_item_factory_new();
     _ = c.g_signal_connect_data(words_factory, "setup", @ptrCast(&gtkSetup), null, null, 0);
     // different one so it doesn't wrap
     _ = c.g_signal_connect_data(words_factory, "bind", @ptrCast(&gtkBindWords), null, null, 0);
@@ -266,7 +266,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     c.gtk_orientable_set_orientation(@ptrCast(lv), c.GTK_ORIENTATION_HORIZONTAL);
 
     // creating window for the list
-    var scrolled_window = c.gtk_scrolled_window_new();
+    const scrolled_window = c.gtk_scrolled_window_new();
     c.gtk_scrolled_window_set_child(@ptrCast(scrolled_window), lv);
     c.gtk_scrolled_window_set_overlay_scrolling(@ptrCast(scrolled_window), 0);
     c.gtk_widget_set_size_request(scrolled_window, -1, 70);
@@ -283,7 +283,7 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
     gtkSetMargins(vbox, 20);
 
     // setting up scrolling for the description widget
-    var description_scroll = c.gtk_scrolled_window_new();
+    const description_scroll = c.gtk_scrolled_window_new();
     c.gtk_widget_set_valign(description_scroll, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_vexpand(description_scroll, 1);
 
@@ -291,11 +291,11 @@ fn gtkActivate(app: *c.GtkApplication, user_data: c.gpointer) callconv(.C) void 
 
     c.gtk_box_append(@ptrCast(vbox), description_scroll);
 
-    var button = c.gtk_button_new_with_label("Search");
+    const button = c.gtk_button_new_with_label("Search");
 
     entry_buffer = c.gtk_entry_buffer_new(null, 0);
     c.gtk_entry_buffer_set_text(entry_buffer, message, message.len);
-    var entry = c.gtk_entry_new_with_buffer(entry_buffer);
+    const entry = c.gtk_entry_new_with_buffer(entry_buffer);
     c.gtk_widget_set_halign(entry, c.GTK_ALIGN_FILL);
     c.gtk_widget_set_hexpand(entry, 1);
 

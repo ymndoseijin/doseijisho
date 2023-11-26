@@ -165,7 +165,7 @@ pub const Library = struct {
         var argv_a = [_][*c]const u8{
             "mecab",
         };
-        var cptr = @as([*c][*c]u8, @ptrCast(&argv_a[0]));
+        const cptr = @as([*c][*c]u8, @ptrCast(&argv_a[0]));
 
         var iter = std.mem.split(u8, std.mem.span(phrase), "\"");
 
@@ -177,15 +177,15 @@ pub const Library = struct {
 
             if (token.len == 0)
                 continue;
-            var dupe_token = try allocator.dupeZ(u8, token);
+            const dupe_token = try allocator.dupeZ(u8, token);
 
             if (quote_i == 0) {
                 defer allocator.free(dupe_token);
 
-                var mecab = c.mecab_new(argv_a.len, cptr);
+                const mecab = c.mecab_new(argv_a.len, cptr);
                 defer c.mecab_destroy(mecab);
 
-                var c_response = c.mecab_sparse_tostr(mecab, @as([*c]const u8, @ptrCast(dupe_token)));
+                const c_response = c.mecab_sparse_tostr(mecab, @as([*c]const u8, @ptrCast(dupe_token)));
 
                 if (self.config.verbose)
                     try stdout.print("mecab {s}\n", .{c_response});
@@ -297,8 +297,8 @@ pub const CsvDictionary = struct {
 
         while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
             var iter = std.mem.split(u8, line, "\t");
-            var name_slice = iter.next().?;
-            var name_copy = try allocator.alloc(u8, name_slice.len);
+            const name_slice = iter.next().?;
+            const name_copy = try allocator.alloc(u8, name_slice.len);
             std.mem.copy(u8, name_copy, name_slice);
 
             try hash_map.put(name_copy, offset);
@@ -331,7 +331,7 @@ pub const CsvDictionary = struct {
         while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
             var iter = std.mem.split(u8, line, "\t");
             _ = iter.next();
-            var description_slice: [:0]u8 = try allocator.dupeZ(u8, iter.next().?);
+            const description_slice: [:0]u8 = try allocator.dupeZ(u8, iter.next().?);
             allocator.free(line);
 
             return description_slice;
@@ -341,11 +341,11 @@ pub const CsvDictionary = struct {
     }
 
     pub fn getEntryBatch(self: *CsvDictionary, lemma: []const u8, name: []const u8) !EntryBatch {
-        var dict_result = self.dict_hash_map.get(lemma);
+        const dict_result = self.dict_hash_map.get(lemma);
 
         var batch = EntryBatch{ .entries = std.ArrayList(Entry).init(allocator) };
 
-        var name_dup = try allocator.dupeZ(u8, name);
+        const name_dup = try allocator.dupeZ(u8, name);
 
         if (dict_result) |offset| {
             if (self.config.verbose)
@@ -355,7 +355,7 @@ pub const CsvDictionary = struct {
             description_slice.len -= num + 1;
             description_slice[description_slice.len - 1] = 0;
 
-            var entry = try allocator.dupeZ(u8, description_slice);
+            const entry = try allocator.dupeZ(u8, description_slice);
 
             try batch.entries.append(Entry{ .name = name_dup, .description = entry, .score = 0 });
 
@@ -387,11 +387,11 @@ pub const EpwingDictionary = struct {
 
         var ibl: usize = string.len;
         var obl: usize = string.len * 4;
-        var ret: usize = c.iconv(iconv, @as([*c][*c]u8, @ptrCast(&target_string)), &ibl, @as([*c][*c]u8, @ptrCast(&conversion_ptr)), &obl);
+        const ret: usize = c.iconv(iconv, @as([*c][*c]u8, @ptrCast(&target_string)), &ibl, @as([*c][*c]u8, @ptrCast(&conversion_ptr)), &obl);
         _ = ret;
-        var index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
+        const index = std.mem.indexOf(u8, converted_lemma, "\x00").?;
 
-        var buff = try allocator.dupeZ(u8, converted_lemma[0..index]);
+        const buff = try allocator.dupeZ(u8, converted_lemma[0..index]);
 
         allocator.free(converted_lemma);
 
@@ -400,11 +400,11 @@ pub const EpwingDictionary = struct {
 
     pub fn init(path: []const u8, config: Configuration) !EpwingDictionary {
         var book: c.EB_Book = undefined;
-        var path_null = try allocator.dupeZ(u8, path);
+        const path_null = try allocator.dupeZ(u8, path);
         var subbook_count: i32 = 0;
         var subbook_list: [10]c.EB_Subbook_Code = undefined;
-        var iconv_to = c.iconv_open("euc-jp", "UTF-8");
-        var iconv_from = c.iconv_open("UTF-8", "euc-jp");
+        const iconv_to = c.iconv_open("euc-jp", "UTF-8");
+        const iconv_from = c.iconv_open("UTF-8", "euc-jp");
         var title: [c.EB_MAX_TITLE_LENGTH + 1]u8 = undefined;
 
         defer allocator.free(path_null);
@@ -451,7 +451,7 @@ pub const EpwingDictionary = struct {
         var hits: [50]c.EB_Hit = undefined;
 
         var lemma_sentinel = try allocator.dupeZ(u8, lemma);
-        var converted_lemma = try iconvOwned(self.iconv_to, &lemma_sentinel);
+        const converted_lemma = try iconvOwned(self.iconv_to, &lemma_sentinel);
 
         defer allocator.free(converted_lemma);
         defer allocator.free(lemma_sentinel);
@@ -491,13 +491,13 @@ pub const EpwingDictionary = struct {
                 return batch;
             }
 
-            var response = try iconvOwned(self.iconv_from, &buff);
+            const response = try iconvOwned(self.iconv_from, &buff);
 
             if (c.eb_read_heading(&self.book, null, null, null, buff.len - 1, @as([*c]u8, @ptrCast(buff)), &result_len) == -1) {
                 return batch;
             }
 
-            var heading = try iconvOwned(self.iconv_from, &buff);
+            const heading = try iconvOwned(self.iconv_from, &buff);
 
             try batch.entries.append(Entry{ .name = heading, .description = response, .score = 0 });
 

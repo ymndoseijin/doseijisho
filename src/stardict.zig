@@ -31,14 +31,14 @@ pub const NgramIterator = struct {
     pub fn next(self: *NgramIterator) !?[]const u8 {
         if (self.offset == self.string.len)
             return null;
-        var nu: u32 = @as(u32, @intCast(self.n));
+        const nu: u32 = @as(u32, @intCast(self.n));
         var buff = try allocator.alloc(u8, nu);
         var i: u32 = 0;
         while (i < nu) : (i += 1) {
             if (self.offset + @as(i32, @intCast(i)) > self.string.len - 1 or self.offset + @as(i32, @intCast(i)) < 0 or self.string.len == 0) {
                 buff[i] = ' ';
             } else {
-                var index: u32 = @as(u32, @intCast(self.offset + @as(i32, @intCast(i))));
+                const index: u32 = @as(u32, @intCast(self.offset + @as(i32, @intCast(i))));
                 buff[i] = self.string[index];
             }
         }
@@ -106,7 +106,7 @@ pub const StarDictDictionary = struct {
 
         var i: u32 = 0;
         while (true) {
-            var char = reader.readByte() catch return null;
+            const char = reader.readByte() catch return null;
             if (i > buff.len - 1) {
                 std.log.err("Dictionary name is larger than allowed! \"{s}\"", .{buff});
                 return null;
@@ -125,7 +125,7 @@ pub const StarDictDictionary = struct {
     pub fn init(path: []const u8, config: Configuration) !StarDictDictionary {
         var limits_list = std.ArrayList(StarDictLimits).init(allocator);
 
-        var dir = try std.fs.cwd().openIterableDir(path, .{});
+        var dir = try std.fs.cwd().openDir(path, .{ .iterate = true });
         var dict_path: []const u8 = undefined;
         var index_path: []const u8 = undefined;
         var syn_path: []const u8 = undefined;
@@ -158,7 +158,7 @@ pub const StarDictDictionary = struct {
                 syn_path = try std.fs.path.join(allocator, &[_][]const u8{ path, file_entry.path });
                 has_syn = true;
             } else if (std.mem.endsWith(u8, file_entry.basename, ".ifo")) {
-                var ifo_path = try std.fs.path.join(allocator, &[_][]const u8{ path, file_entry.path });
+                const ifo_path = try std.fs.path.join(allocator, &[_][]const u8{ path, file_entry.path });
                 defer allocator.free(ifo_path);
 
                 var file = try std.fs.cwd().openFile(ifo_path, .{});
@@ -190,12 +190,12 @@ pub const StarDictDictionary = struct {
         var index_file = try std.fs.cwd().openFile(index_path, .{});
 
         var buf_reader = std.io.bufferedReader(index_file.reader());
-        var in_stream = buf_reader.reader();
+        const in_stream = buf_reader.reader();
 
         while (true) {
-            var string = try getString(@TypeOf(in_stream), in_stream) orelse break;
-            var start = try getU32(@TypeOf(in_stream), in_stream) orelse break;
-            var end = try getU32(@TypeOf(in_stream), in_stream) orelse break;
+            const string = try getString(@TypeOf(in_stream), in_stream) orelse break;
+            const start = try getU32(@TypeOf(in_stream), in_stream) orelse break;
+            const end = try getU32(@TypeOf(in_stream), in_stream) orelse break;
 
             try limits_list.append(StarDictLimits{
                 .name = string,
@@ -208,15 +208,15 @@ pub const StarDictDictionary = struct {
             var syn_index_file = try std.fs.cwd().openFile(syn_path, .{});
 
             var syn_buf_reader = std.io.bufferedReader(syn_index_file.reader());
-            var syn_stream = syn_buf_reader.reader();
+            const syn_stream = syn_buf_reader.reader();
             while (true) {
-                var string = try getString(@TypeOf(syn_stream), syn_stream) orelse break;
-                var index = try getU32(@TypeOf(syn_stream), syn_stream) orelse break;
+                const string = try getString(@TypeOf(syn_stream), syn_stream) orelse break;
+                const index = try getU32(@TypeOf(syn_stream), syn_stream) orelse break;
 
                 if (string.len == 0)
                     continue;
 
-                var entry = limits_list.items[index];
+                const entry = limits_list.items[index];
 
                 try limits_list.append(StarDictLimits{
                     .name = string,
@@ -231,13 +231,13 @@ pub const StarDictDictionary = struct {
             defer file.close();
 
             var zip_reader = std.io.bufferedReader(file.reader());
-            var file_in_stream = zip_reader.reader();
+            const file_in_stream = zip_reader.reader();
 
             var stream = try std.compress.gzip.decompress(allocator, file_in_stream);
             defer stream.deinit();
 
             var zip_stream = stream.reader();
-            var zip_buff = try zip_stream.readAllAlloc(allocator, std.math.maxInt(usize));
+            const zip_buff = try zip_stream.readAllAlloc(allocator, std.math.maxInt(usize));
 
             if (config.verbose)
                 try stdout.print("size: {}\n", .{zip_buff.len});
@@ -295,22 +295,22 @@ pub const StarDictDictionary = struct {
                 dict_result = entry;
 
                 if (self.is_zip) {
-                    var description_slice = self.zip_buff[dict_result.start..dict_result.end];
+                    const description_slice = self.zip_buff[dict_result.start..dict_result.end];
 
-                    var string_ptr = try allocator.dupeZ(u8, description_slice);
+                    const string_ptr = try allocator.dupeZ(u8, description_slice);
                     try batch.entries.append(Entry{ .name = try allocator.dupeZ(u8, entry.name), .description = string_ptr, .score = 0 });
                 } else {
                     var file = try std.fs.cwd().openFile(self.dict_path, .{});
                     var buf_reader = std.io.bufferedReader(file.reader());
-                    var file_in_stream = buf_reader.reader();
+                    const file_in_stream = buf_reader.reader();
 
                     var in_stream = file_in_stream;
                     try in_stream.skipBytes(dict_result.start, .{});
 
-                    var description_slice = try allocator.alloc(u8, dict_result.end - dict_result.start);
+                    const description_slice = try allocator.alloc(u8, dict_result.end - dict_result.start);
                     _ = try in_stream.readAll(description_slice);
 
-                    var string_ptr = try allocator.dupeZ(u8, description_slice);
+                    const string_ptr = try allocator.dupeZ(u8, description_slice);
                     allocator.free(description_slice);
                     try batch.entries.append(Entry{ .name = try allocator.dupeZ(u8, entry.name), .description = string_ptr, .score = 0 });
 

@@ -77,7 +77,7 @@ pub fn main() !void {
 
     try std.fs.cwd().makePath(config_path);
 
-    var ini_path = try std.mem.concat(allocator, u8, &[_][]const u8{ config_path, "/config.ini" });
+    const ini_path = try std.mem.concat(allocator, u8, &[_][]const u8{ config_path, "/config.ini" });
     defer allocator.free(ini_path);
 
     // Args parsing
@@ -141,7 +141,7 @@ pub fn main() !void {
                         } else if (free_arg_count == 1) {
                             dict_name = try allocator.dupe(u8, arg);
                         } else {
-                            var query = try allocator.dupeZ(u8, arg);
+                            const query = try allocator.dupeZ(u8, arg);
                             try search_query.append(query);
                         }
                         free_arg_count += 1;
@@ -152,17 +152,17 @@ pub fn main() !void {
                 }
             },
             ArgState.Epwing => {
-                var dict = try defs.EpwingDictionary.init(arg, config);
+                const dict = try defs.EpwingDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .epwing = dict });
                 state = ArgState.Arg;
             },
             ArgState.StarDict => {
-                var dict = try defs.StarDictDictionary.init(arg, config);
+                const dict = try defs.StarDictDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .stardict = dict });
                 state = ArgState.Arg;
             },
             ArgState.Csv => {
-                var dict = try defs.CsvDictionary.init(arg, config);
+                const dict = try defs.CsvDictionary.init(arg, config);
                 try dicts.append(defs.Dictionary{ .csv = dict });
                 state = ArgState.Arg;
             },
@@ -181,7 +181,7 @@ pub fn main() !void {
             try ini_config.loadConfigForSection(DictConfig, &dict_config, tag.name, ini_path);
 
             for (dict_config.dictionary.items) |path| {
-                var dict = try tag.type.init(path, config);
+                const dict = try tag.type.init(path, config);
                 try dicts.append(@unionInit(defs.Dictionary, tag.name, dict));
                 allocator.free(path);
             }
@@ -211,13 +211,13 @@ pub fn main() !void {
 
             if (std.mem.eql(u8, title, dict_name)) {
                 if (free_arg_count == 2) {
-                    var stdin = std.io.getStdIn().reader();
+                    const stdin = std.io.getStdIn().reader();
                     var buf_reader = std.io.bufferedReader(stdin);
                     var in_stream = buf_reader.reader();
 
                     while (try in_stream.readUntilDelimiterOrEofAlloc(allocator, '\n', 32768)) |line| {
-                        var sentinel_query = try allocator.dupeZ(u8, line);
-                        var results = try library.queryLibrary(@as([*c]const u8, @ptrCast(sentinel_query)), index);
+                        const sentinel_query = try allocator.dupeZ(u8, line);
+                        const results = try library.queryLibrary(@as([*c]const u8, @ptrCast(sentinel_query)), index);
                         try printEntry(results);
 
                         allocator.free(sentinel_query);

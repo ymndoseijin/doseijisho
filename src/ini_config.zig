@@ -90,7 +90,7 @@ pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []cons
         var field_name: []const u8 = undefined;
 
         while (iter.next()) |in_field| {
-            var field = std.mem.trim(u8, in_field, " ");
+            const field = std.mem.trim(u8, in_field, " ");
             if (i == 0) {
                 field_name = field;
             } else if (i == 1) {
