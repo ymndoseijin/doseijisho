@@ -77,7 +77,7 @@ pub fn loadConfigForSection(comptime T: type, configuration: *T, section: []cons
 
         if (line[0] == '[') {
             if (line[line.len - 1] != ']') return error.UnclosedSection;
-            std.mem.copy(u8, &current_section, line[1 .. line.len - 1]);
+            @memcpy(current_section[0 .. line.len - 2], line[1 .. line.len - 1]);
             section_len = line.len - 1;
             continue;
         }

@@ -65,10 +65,10 @@ pub fn main() !void {
     var read_config = true;
 
     // set ini_path
-    if (std.os.getenv("XDG_CONFIG_HOME")) |v| {
+    if (std.posix.getenv("XDG_CONFIG_HOME")) |v| {
         config_path = try std.fmt.allocPrint(allocator, "{s}/doseijisho", .{v});
     } else {
-        if (std.os.getenv("HOME")) |home| {
+        if (std.posix.getenv("HOME")) |home| {
             config_path = try std.fmt.allocPrint(allocator, "{s}/.config/doseijisho", .{home});
         } else {
             @panic("No $HOME env var");
@@ -133,7 +133,7 @@ pub fn main() !void {
                     std.mem.eql(u8, arg, "--help"))
                 {
                     try stdout.print(@embedFile("help.txt"), .{command.?});
-                    std.os.exit(0);
+                    std.posix.exit(0);
                 } else if (arg.len > 1) {
                     if (arg[0] != '-') {
                         if (free_arg_count == 0) {
@@ -147,7 +147,7 @@ pub fn main() !void {
                         free_arg_count += 1;
                     } else {
                         try stdout.print("Invalid argument {s}\n", .{arg});
-                        std.os.exit(255);
+                        return error.InvalidArgument;
                     }
                 }
             },
@@ -240,7 +240,7 @@ pub fn main() !void {
             index += 1;
         }
         if (no_dict) {
-            std.os.exit(255);
+            return error.NoDictFound;
         }
     } else if (config.gtk) {
         gtk.gtkStart(library);

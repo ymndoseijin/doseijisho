@@ -299,7 +299,7 @@ pub const CsvDictionary = struct {
             var iter = std.mem.split(u8, line, "\t");
             const name_slice = iter.next().?;
             const name_copy = try allocator.alloc(u8, name_slice.len);
-            std.mem.copy(u8, name_copy, name_slice);
+            @memcpy(name_copy, name_slice);
 
             try hash_map.put(name_copy, offset);
 

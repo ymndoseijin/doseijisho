@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.build.Builder) !void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -21,10 +21,10 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = optimize,
     });
 
-    exe.linkSystemLibraryName("mecab");
+    exe.linkSystemLibrary("mecab");
     exe.linkSystemLibrary("gtk4");
     exe.addIncludePath(.{ .path = "/usr/include/eb/" });
-    exe.linkSystemLibraryName("eb");
+    exe.linkSystemLibrary("eb");
     exe.linkLibC();
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

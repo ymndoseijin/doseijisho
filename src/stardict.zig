@@ -114,7 +114,7 @@ pub const StarDictDictionary = struct {
             buff[i] = char;
             if (char == 0) {
                 var return_buff = try allocator.alloc(u8, i + 1);
-                std.mem.copy(u8, return_buff, buff[0 .. i + 1]);
+                @memcpy(return_buff, buff[0 .. i + 1]);
 
                 return return_buff[0..i :0];
             }
@@ -233,8 +233,7 @@ pub const StarDictDictionary = struct {
             var zip_reader = std.io.bufferedReader(file.reader());
             const file_in_stream = zip_reader.reader();
 
-            var stream = try std.compress.gzip.decompress(allocator, file_in_stream);
-            defer stream.deinit();
+            var stream = std.compress.gzip.decompressor(file_in_stream);
 
             var zip_stream = stream.reader();
             const zip_buff = try zip_stream.readAllAlloc(allocator, std.math.maxInt(usize));
